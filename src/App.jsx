@@ -199,7 +199,82 @@ function ConsentToggle({ checked, onChange, title, detail, icon: Icon }) {
   );
 }
 
+function TermsSheet({ onClose, onAccept }) {
+  const termsCards = [
+    {
+      icon: ShieldCheck,
+      title: "Data Ownership & Privacy",
+      text: "Your data belongs to you. We only analyze what you consent to share, and we never sell your personal details or screen-scrape your bank accounts.",
+    },
+    {
+      icon: WalletCards,
+      title: "Guidance, Not Automatic Transfers",
+      text: "ResilientBank helps you calculate safe savings and affordability limits. The app will NEVER move money, issue loans, or make withdrawals without your direct approval.",
+    },
+    {
+      icon: SlidersHorizontal,
+      title: "Total Control & Erasure",
+      text: "You can pause recommendations, change your settings, or delete your connected data permanently at any time from the Data Control tab.",
+    },
+  ];
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-end justify-center sm:items-center sm:p-6">
+      <button
+        type="button"
+        aria-label="Close terms"
+        onClick={onClose}
+        className="absolute inset-0 bg-[#10251E]/55 backdrop-blur-sm"
+      />
+      <section
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="terms-title"
+        className="relative z-10 max-h-[92vh] w-full overflow-y-auto rounded-t-[30px] bg-[#F8F9FA] px-4 pb-[max(1.25rem,env(safe-area-inset-bottom))] pt-3 shadow-2xl sm:max-w-xl sm:rounded-[30px] sm:p-6"
+      >
+        <div className="mx-auto mb-3 h-1.5 w-12 rounded-full bg-[#CAD5D0] sm:hidden" />
+        <div className="flex items-start justify-between gap-4 px-1">
+          <div>
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-[#E5F2EC] px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.12em] text-[#2D6955]">
+              <ShieldCheck size={12} /> Plain-language promise
+            </span>
+            <h2 id="terms-title" className="mt-3 text-2xl font-bold tracking-[-0.045em] text-[#18231F]">
+              ResilientBank Terms of Service
+            </h2>
+            <p className="mt-2 text-sm leading-6 text-[#68766F]">
+              Three simple things to know before you continue.
+            </p>
+          </div>
+          <button type="button" onClick={onClose} className="focus-ring grid h-10 w-10 shrink-0 place-items-center rounded-xl border border-[#DDE4E0] bg-white text-[#53635D]">
+            <X size={18} />
+          </button>
+        </div>
+        <div className="mt-5 space-y-3">
+          {termsCards.map(({ icon: Icon, title, text }, index) => (
+            <article key={title} className="rounded-2xl border border-[#E0E7E3] bg-white p-4">
+              <div className="flex gap-3">
+                <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-[#E8F3EE] text-[#20664F]">
+                  <Icon size={18} />
+                </span>
+                <div>
+                  <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#799087]">Promise {index + 1}</p>
+                  <h3 className="mt-1 text-sm font-bold text-[#2D3C36]">{title}</h3>
+                  <p className="mt-2 text-xs leading-5 text-[#65736E]">{text}</p>
+                </div>
+              </div>
+            </article>
+          ))}
+        </div>
+        <PrimaryButton onClick={onAccept} className="mt-5">
+          <Check size={17} /> I Understand & Agree
+        </PrimaryButton>
+      </section>
+    </div>
+  );
+}
+
 function ConsentStage({ terms, setTerms, consent, setConsent, onBack, onContinue }) {
+  const [showTerms, setShowTerms] = useState(false);
   const allAllowed = terms && Object.values(consent).every(Boolean);
   return (
     <OnboardingShell stage={2}>
@@ -212,13 +287,19 @@ function ConsentStage({ terms, setTerms, consent, setConsent, onBack, onContinue
           <ConsentToggle checked={consent.expenses} onChange={(value) => setConsent((current) => ({ ...current, expenses: value }))} title="Expense estimation" detail="Use your bills to protect essential money first." icon={WalletCards} />
           <ConsentToggle checked={consent.savings} onChange={(value) => setConsent((current) => ({ ...current, savings: value }))} title="Savings goals" detail="Use your target to suggest small, realistic steps." icon={PiggyBank} />
         </div>
-        <label className="focus-ring mt-5 flex cursor-pointer items-start gap-3 rounded-2xl border border-[#E0E6E3] bg-white p-4">
-          <input type="checkbox" checked={terms} onChange={(event) => setTerms(event.target.checked)} className="mt-0.5 h-5 w-5 accent-[#0F4135]" />
-          <span><strong className="block text-sm text-[#34423D]">I agree to the Terms & Conditions</strong><span className="mt-1 block text-xs leading-5 text-[#74817C]">I understand this is guidance, not a promise of income or credit.</span></span>
-        </label>
+        <div className="focus-ring mt-5 flex items-start gap-3 rounded-2xl border border-[#E0E6E3] bg-white p-4">
+          <label className="flex min-w-0 flex-1 cursor-pointer items-start gap-3">
+            <input type="checkbox" checked={terms} onChange={(event) => setTerms(event.target.checked)} className="mt-0.5 h-5 w-5 shrink-0 accent-[#0F4135]" />
+            <span><strong className="block text-sm leading-5 text-[#34423D]">I agree to the Terms & Conditions and Privacy Policy</strong><span className="mt-1 block text-xs leading-5 text-[#74817C]">I understand this is guidance, not a promise of income or credit.</span></span>
+          </label>
+          <button type="button" onClick={() => setShowTerms(true)} className="focus-ring shrink-0 rounded-xl bg-[#E9F3EE] px-3 py-2 text-xs font-bold text-[#17634D]">
+            Read T&amp;C
+          </button>
+        </div>
         {!allAllowed && <p className="mt-3 flex items-center gap-2 text-xs text-[#8A641E]"><Info size={14} /> Turn on all three items and accept the terms to continue.</p>}
         <PrimaryButton onClick={onContinue} disabled={!allAllowed} className="mt-7">Start the questions <ArrowRight size={17} /></PrimaryButton>
       </div>
+      {showTerms && <TermsSheet onClose={() => setShowTerms(false)} onAccept={() => { setTerms(true); setShowTerms(false); }} />}
     </OnboardingShell>
   );
 }
