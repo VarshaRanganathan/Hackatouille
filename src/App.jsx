@@ -609,7 +609,7 @@ function SavingsView({ onBack, showToast }) {
                 <div className="relative mt-2">
                   <span className="pointer-events-none absolute left-3 top-2.5 text-sm text-[#8a9d91]">₹</span>
                   <input
-                    className="focus-ring w-full rounded-xl border border-[#dce7dc] bg-[#fbfcf9] py-2.5 pl-7 pr-2 text-sm font-bold text-[#294d3b] outline-none"
+                    className="focus-ring w-full [appearance:textfield] rounded-xl border border-[#dce7dc] bg-[#fbfcf9] py-2.5 pl-7 pr-2 text-sm font-bold text-[#294d3b] outline-none [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
                     type="number"
                     min="0"
                     value={value}
@@ -686,7 +686,7 @@ function CreditView({ onBack, showToast }) {
           <label className="block text-xs font-bold text-[#506b5d]">Request amount
             <div className="relative mt-2">
               <span className="pointer-events-none absolute left-3 top-3 text-sm text-[#8a9d91]">₹</span>
-              <input type="number" min="500" max="25000" value={amount} onChange={(event) => setAmount(Number(event.target.value))} className="focus-ring w-full rounded-xl border border-[#dce7dc] bg-[#fbfcf9] py-3 pl-7 pr-3 text-lg font-bold text-[#294d3b] outline-none" />
+              <input type="number" min="500" max="25000" value={amount} onChange={(event) => setAmount(Number(event.target.value))} className="focus-ring w-full [appearance:textfield] rounded-xl border border-[#dce7dc] bg-[#fbfcf9] py-3 pl-7 pr-3 text-lg font-bold text-[#294d3b] outline-none [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none" />
             </div>
           </label>
           <div className="mt-5">
@@ -722,7 +722,7 @@ function CreditView({ onBack, showToast }) {
   );
 }
 
-function GuidanceView({ onBack }) {
+function GuidanceView({ onBack, embedded = false }) {
   const prompts = ["How much should I save?", "Can I afford this loan?", "Why did my score change?"];
   const answers = {
     "How much should I save?": "Start with the amount your plan can repeat. Today, ₹120 keeps your essentials covered and still builds a little momentum.",
@@ -733,7 +733,7 @@ function GuidanceView({ onBack }) {
   const ask = (prompt) => setMessages((current) => [...current, { from: "user", text: prompt }, { from: "bot", text: answers[prompt] }]);
   return (
     <div className="space-y-5">
-      <PageIntro icon={MessageCircle} eyebrow="Module 6" title="A calm second opinion." detail="Plain-language guidance for the decision in front of you." onBack={onBack} />
+      {!embedded && <PageIntro icon={MessageCircle} eyebrow="Module 6" title="A calm second opinion." detail="Plain-language guidance for the decision in front of you." onBack={onBack} />}
       <div className="mx-auto max-w-3xl overflow-hidden rounded-3xl border border-[#e0e7de] bg-white soft-shadow">
         <div className="flex items-center gap-3 border-b border-[#edf0eb] bg-[#f2f8f0] px-5 py-4">
           <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-[#d9eed9] text-[#2a7650]"><Bot size={20} /></div>
@@ -758,7 +758,7 @@ function GuidanceView({ onBack }) {
   );
 }
 
-function SimulatorView({ onBack }) {
+function SimulatorView({ onBack, embedded = false }) {
   const [scenario, setScenario] = useState("save");
   const [amount, setAmount] = useState(200);
   const baseBuffer = 18;
@@ -767,31 +767,48 @@ function SimulatorView({ onBack }) {
   return (
     <section className="rounded-3xl border border-[#e0e7de] bg-white p-5 soft-shadow sm:p-7">
       <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-start">
-        <PageIntro icon={SlidersHorizontal} eyebrow="Module 5 · What-if simulator" title="Try a different tomorrow." detail="Explore impact without touching your actual money." onBack={onBack} />
+        {!embedded && <PageIntro icon={SlidersHorizontal} eyebrow="Module 5 · What-if simulator" title="Try a different tomorrow." detail="Explore impact without touching your actual money." onBack={onBack} />}
+        {embedded && <div><div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.18em] text-[#6c8b79]"><SlidersHorizontal size={14} /> Module 5 · What-if simulator</div><h2 className="mt-2 font-display text-2xl font-semibold tracking-[-0.05em] text-[#153c2d]">Try a different tomorrow.</h2><p className="mt-1 text-sm text-[#708178]">Explore impact without touching your actual money.</p></div>}
         <Pill tone="blue"><RotateCcw size={12} /> No real transactions</Pill>
       </div>
       <div className="mt-7 flex flex-wrap gap-2">
-        <button onClick={() => setScenario("save")} className={`rounded-xl px-4 py-2.5 text-xs font-bold ${scenario === "save" ? "bg-[#2b7955] text-white" : "border border-[#dbe5db] text-[#5c7769]"}`}>Save ₹200 / week</button>
-        <button onClick={() => setScenario("drop")} className={`rounded-xl px-4 py-2.5 text-xs font-bold ${scenario === "drop" ? "bg-[#c96a46] text-white" : "border border-[#dbe5db] text-[#5c7769]"}`}>Income drops by 20%</button>
+        <button onClick={() => { setScenario("save"); setAmount(200); }} className={`rounded-xl px-4 py-2.5 text-xs font-bold transition-colors ${scenario === "save" ? "bg-[#2b7955] text-white" : "border border-[#dbe5db] text-[#5c7769]"}`}>Save ₹200 / week</button>
+        <button onClick={() => { setScenario("drop"); setAmount(20); }} className={`rounded-xl px-4 py-2.5 text-xs font-bold transition-colors ${scenario === "drop" ? "bg-[#c96a46] text-white" : "border border-[#dbe5db] text-[#5c7769]"}`}>Income drops by 20%</button>
       </div>
       <div className="mt-7 max-w-xl">
-        <div className="flex justify-between text-xs font-bold text-[#4c6a59]"><span>{scenario === "save" ? "Weekly amount" : "Income drop"}</span><span>{scenario === "save" ? formatCurrency(amount) : `${amount}%`}</span></div>
+        <div className="flex justify-between text-xs font-bold text-[#4c6a59]"><span>{scenario === "save" ? "Weekly amount" : "Income drop"}</span><span className="min-w-14 text-right tabular-nums">{scenario === "save" ? formatCurrency(amount) : `${amount}%`}</span></div>
         <input type="range" min={scenario === "save" ? 50 : 5} max={scenario === "save" ? 500 : 40} value={amount} onChange={(event) => setAmount(Number(event.target.value))} className="mt-4 w-full accent-[#2b7955]" />
       </div>
       <div className="mt-8 grid gap-3 sm:grid-cols-3">
-        <div className="rounded-2xl bg-[#f0f7ee] p-4"><div className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#78947f]">Buffer days</div><div className="mt-2 font-display text-3xl font-semibold text-[#2a704d]">{projectedBuffer.toFixed(1)}</div><div className="mt-1 text-xs text-[#7a8c81]">{projectedBuffer > baseBuffer ? "more room" : "less room"}</div></div>
-        <div className="rounded-2xl bg-[#eef2ff] p-4"><div className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#7382a9]">Resilience score</div><div className="mt-2 font-display text-3xl font-semibold text-[#53679e]">{projectedScore}</div><div className="mt-1 text-xs text-[#7a879e]">from 78 today</div></div>
+        <div className="rounded-2xl bg-[#f0f7ee] p-4"><div className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#78947f]">Buffer days</div><div className="mt-2 font-display text-3xl font-semibold tabular-nums text-[#2a704d]">{projectedBuffer.toFixed(1)}</div><div className="mt-1 text-xs text-[#7a8c81]">{projectedBuffer > baseBuffer ? "more room" : "less room"}</div></div>
+        <div className="rounded-2xl bg-[#eef2ff] p-4"><div className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#7382a9]">Resilience score</div><div className="mt-2 font-display text-3xl font-semibold tabular-nums text-[#53679e]">{projectedScore}</div><div className="mt-1 text-xs text-[#7a879e]">from 78 today</div></div>
         <div className="rounded-2xl bg-[#fff8ee] p-4"><div className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#9b8152]">Plan signal</div><div className="mt-2 font-display text-xl font-semibold text-[#8b6935]">{projectedBuffer > baseBuffer ? "Positive" : "Watch closely"}</div><div className="mt-1 text-xs text-[#857c6d]">no money moved</div></div>
       </div>
     </section>
   );
 }
 
+function GuidanceHub({ onBack }) {
+  const [view, setView] = useState("advisor");
+
+  return (
+    <div className="space-y-5">
+      <PageIntro icon={MessageCircle} eyebrow="Modules 5 & 6" title="Explore with a calm second opinion." detail="Ask for guidance or model a different tomorrow without changing your real plan." onBack={onBack} />
+      <div className="mx-auto grid w-full max-w-xl grid-cols-2 rounded-2xl border border-[#dce7dc] bg-white p-1.5 soft-shadow">
+        <button onClick={() => setView("advisor")} className={`focus-ring flex items-center justify-center gap-2 rounded-xl px-3 py-2.5 text-xs font-bold transition-colors ${view === "advisor" ? "bg-[#246f4e] text-white shadow-sm" : "text-[#698074] hover:bg-[#f1f6ef]"}`}><Bot size={15} /> AI Advisor</button>
+        <button onClick={() => setView("simulator")} className={`focus-ring flex items-center justify-center gap-2 rounded-xl px-3 py-2.5 text-xs font-bold transition-colors ${view === "simulator" ? "bg-[#246f4e] text-white shadow-sm" : "text-[#698074] hover:bg-[#f1f6ef]"}`}><SlidersHorizontal size={15} /> Scenario Simulator</button>
+      </div>
+      <div className={view === "advisor" ? "block" : "hidden"}><GuidanceView embedded /></div>
+      <div className={view === "simulator" ? "block" : "hidden"}><SimulatorView embedded /></div>
+    </div>
+  );
+}
+
 function Drawer({ title, icon: Icon, onClose, children }) {
   return (
-    <div className="fixed inset-0 z-50 flex justify-end">
-      <button aria-label="Close drawer" onClick={onClose} className="absolute inset-0 bg-[#15382c]/20 backdrop-blur-[2px]" />
-      <aside className="relative h-full w-full max-w-md overflow-y-auto bg-[#fbfcf8] p-5 shadow-2xl sm:p-7">
+    <div className="fixed inset-0 z-40 flex justify-end">
+      <button aria-label="Close drawer" onClick={onClose} className="fixed inset-0 z-40 bg-black/40 backdrop-blur-sm" />
+      <aside className="relative z-50 h-full w-full max-w-md overflow-y-auto bg-[#fbfcf8] p-5 shadow-2xl sm:p-7">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3"><div className="rounded-xl bg-[#e4f1e2] p-2 text-[#2c7551]"><Icon size={18} /></div><h2 className="font-display text-xl font-semibold tracking-[-0.04em] text-[#1b4936]">{title}</h2></div>
           <IconButton label="Close" onClick={onClose}><X size={18} /></IconButton>
@@ -913,7 +930,7 @@ function App() {
 
   useEffect(() => { loadUsers(); }, []);
   useEffect(() => { if (selectedId) loadDashboard(selectedId); }, [selectedId]);
-  useEffect(() => { if (!toast) return undefined; const timer = setTimeout(() => setToast(""), 3200); return () => clearTimeout(timer); }, [toast]);
+  useEffect(() => { if (!toast) return undefined; const timer = setTimeout(() => setToast(""), 3000); return () => clearTimeout(timer); }, [toast]);
 
   const showToast = (message) => setToast(message);
   const chooseTab = (tab) => setActiveTab(tab);
@@ -923,11 +940,11 @@ function App() {
     resilience: <ResilienceView dashboard={dashboard} onBack={() => setActiveTab("home")} />,
     save: <SavingsView onBack={() => setActiveTab("home")} showToast={showToast} />,
     credit: <CreditView onBack={() => setActiveTab("home")} showToast={showToast} />,
-    guidance: <div className="space-y-5"><GuidanceView onBack={() => setActiveTab("home")} /><SimulatorView onBack={() => setActiveTab("home")} /></div>,
+    guidance: <GuidanceHub onBack={() => setActiveTab("home")} />,
   }[activeTab];
 
   return (
-    <div className="min-h-screen pb-24 text-[#15231f]">
+    <div className="min-h-screen text-[#15231f]">
       <header className="sticky top-0 z-30 border-b border-[#e4eae1]/80 bg-[#f7f8f3]/90 backdrop-blur-md">
         <div className="mx-auto flex max-w-7xl items-center justify-between gap-3 px-4 py-3 sm:px-6 lg:px-8">
           <button onClick={() => setActiveTab("home")} className="focus-ring flex items-center gap-2.5 text-left">
@@ -940,28 +957,24 @@ function App() {
           <div className="flex items-center gap-2">
             <IconButton label="Data control" onClick={() => setDrawer("data")} active={drawer === "data"}><Database size={17} /></IconButton>
             <IconButton label="Smart notifications" onClick={() => setDrawer("notifications")} active={drawer === "notifications"}><Bell size={17} /></IconButton>
-            <div className="hidden h-10 items-center gap-2 rounded-xl border border-[#e0e8df] bg-white/80 px-2.5 sm:flex">
+            <button onClick={() => setDrawer("profile")} className="focus-ring hidden h-10 items-center gap-2 rounded-xl border border-[#e0e8df] bg-white/80 px-2.5 transition hover:border-[#bdd0bf] hover:bg-white sm:flex">
               <span className="flex h-6 w-6 items-center justify-center rounded-lg bg-[#e5f0e3] text-[#367454]"><UserRound size={14} /></span>
-              <select aria-label="Select profile" value={selectedId} onChange={(event) => setSelectedId(event.target.value)} className="max-w-[128px] bg-transparent text-xs font-bold text-[#426353] outline-none">
-                {users.map((user) => <option key={user.id} value={user.id}>{getUserName(user)}</option>)}
-              </select>
+              <span className="max-w-[128px] truncate text-xs font-bold text-[#426353]">{getUserName(selectedUser)}</span>
               <ChevronDown size={13} className="text-[#83928a]" />
-            </div>
+            </button>
             <button onClick={() => setDrawer("profile")} className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#e5f0e3] text-[#367454] sm:hidden"><Menu size={18} /></button>
           </div>
         </div>
         <div className="border-t border-[#e6ebe4] px-4 py-2 sm:hidden">
-          <div className="flex items-center gap-2">
+          <button onClick={() => setDrawer("profile")} className="focus-ring flex w-full items-center gap-2 rounded-lg text-left">
             <UserRound size={14} className="text-[#6e8878]" />
-            <select aria-label="Select profile" value={selectedId} onChange={(event) => setSelectedId(event.target.value)} className="flex-1 bg-transparent text-xs font-bold text-[#426353] outline-none">
-              {users.map((user) => <option key={user.id} value={user.id}>{getUserName(user)}</option>)}
-            </select>
-            {usersLoading && <LoadingBar />}
-          </div>
+            <span className="flex-1 truncate text-xs font-bold text-[#426353]">{getUserName(selectedUser)}</span>
+            {usersLoading ? <span className="w-16"><LoadingBar /></span> : <ChevronRight size={14} className="text-[#83928a]" />}
+          </button>
         </div>
       </header>
 
-      <main className="mx-auto max-w-7xl space-y-5 px-4 py-5 sm:px-6 sm:py-7 lg:px-8">
+      <main className="mx-auto max-w-7xl space-y-5 px-4 py-5 pb-28 sm:px-6 sm:py-7 sm:pb-28 md:pb-7 lg:px-8">
         {activeTab === "home" && <StepperBanner consent={consent} setConsent={setConsent} />}
         {dashboardLoading && <LoadingBar />}
         {content}
@@ -977,7 +990,7 @@ function App() {
       {drawer === "data" && <DataControlDrawer onClose={() => setDrawer(null)} showToast={showToast} />}
       {drawer === "notifications" && <NotificationDrawer onClose={() => setDrawer(null)} />}
       {drawer === "profile" && <Drawer title="Choose a profile" icon={UserRound} onClose={() => setDrawer(null)}><div className="space-y-2">{users.map((user) => <button key={user.id} onClick={() => { setSelectedId(user.id); setDrawer(null); }} className={`flex w-full items-center gap-3 rounded-2xl border p-3 text-left ${selectedId === user.id ? "border-[#9fc8a5] bg-[#eef7ed]" : "border-[#e2e9e0] bg-white"}`}><span className="flex h-8 w-8 items-center justify-center rounded-xl bg-[#e7f0e4] text-[#347352]"><UserRound size={15} /></span><span className="text-sm font-bold text-[#416353]">{getUserName(user)}</span>{selectedId === user.id && <Check className="ml-auto text-[#2c7953]" size={16} />}</button>)}</div></Drawer>}
-      {toast && <div className="animate-float-in fixed bottom-24 left-1/2 z-[60] flex -translate-x-1/2 items-center gap-2 rounded-2xl bg-[#1b4e39] px-4 py-3 text-xs font-bold text-white shadow-xl md:bottom-6"><Check size={15} className="text-[#bfe4c3]" />{toast}</div>}
+      {toast && <div className="pointer-events-none fixed top-16 left-1/2 z-50 flex -translate-x-1/2 animate-float-in items-center gap-2 rounded-2xl bg-[#1b4e39] px-4 py-3 text-xs font-bold whitespace-nowrap text-white shadow-xl"><Check size={15} className="text-[#bfe4c3]" />{toast}</div>}
     </div>
   );
 }
