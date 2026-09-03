@@ -2,12 +2,16 @@
 
 ## Run
 
-The Replit workflow `ResilientBank API` runs `npm start`, which starts
-`server.js` on port 3000. It can also be started locally with:
+The Replit workflow `ResilientBank API` runs `npm start`, which builds the
+React frontend and starts `server.js` on port 3000. It can also be started
+locally with:
 
 ```bash
 npm start
 ```
+
+For frontend-only development, use `npm run dev` and open the Vite port shown
+by the terminal.
 
 Set these environment secrets before using the Supabase-backed endpoints:
 

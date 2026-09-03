@@ -2,6 +2,7 @@ require("dotenv").config();
 
 const cors = require("cors");
 const express = require("express");
+const path = require("path");
 const {
   supabase,
   createAuthenticatedClient,
@@ -12,6 +13,7 @@ const PORT = Number(process.env.PORT) || 3000;
 
 app.use(cors());
 app.use(express.json());
+app.use(express.static(path.join(__dirname, "dist")));
 
 app.get("/", (_req, res) => {
   res.json({ name: "ResilientBank API", status: "ok" });
@@ -169,6 +171,11 @@ app.post("/api/savings/calculate", (req, res) => {
     dailyExpenses,
     safeToSave,
   });
+});
+
+app.use((req, res, next) => {
+  if (req.path.startsWith("/api/") || req.method !== "GET") return next();
+  return res.sendFile(path.join(__dirname, "dist", "index.html"));
 });
 
 app.listen(PORT, () => {

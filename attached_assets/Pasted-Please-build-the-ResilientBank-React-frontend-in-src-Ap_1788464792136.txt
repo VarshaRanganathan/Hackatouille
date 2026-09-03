@@ -1,0 +1,29 @@
+Please build the ResilientBank React frontend in `src/App.jsx` matching the 9-module App Flow Chart. Style it as a mobile-first web app using Tailwind CSS.
+
+1. Top Navigation & User Switcher:
+   - Include a profile selector dropdown (`GET /api/users`) to toggle between all 30 mock users.
+   - Quick icons for "Data Control" and "Smart Notifications" drawer.
+
+2. Onboarding Stepper Banner (Modules 1-4):
+   - Horizontal progress indicator showing: [1. Sign Up/Login] -> [2. Connect Accounts] -> [3. Data Consent] -> [4. Financial Setup].
+   - Allow toggling simulated consent items (Income, Expenses, Savings behavior).
+
+3. Home Dashboard Hub (Module 5):
+   - "How much do I have?": Available balance & safe-to-spend amount.
+   - "What's coming up?": Upcoming essential expenses, expected income, and 30-day cash-flow forecast preview.
+   - "What should I do today?": Daily safe-to-save recommendation card, urgent alerts, and guidance.
+
+4. Core Interactive Modules:
+   - Module 2 (Resilience): Score, Buffer Days ("x days of essentials covered"), 30-day forecast, and 'Explain My Score' factor modal.
+   - Module 3 (Savings Engine): Safe-to-Save calculator using `Income - Committed Expenses - Safety Buffer`. Select behaviors (Smart Save, % of Income, Round-up). Include Accept / Adjust / Skip buttons.
+   - Module 4 (Responsible Credit): Request form -> System Affordability check -> Renders approved offer with matched terms or auto-decline explanation based on debt stress circuit breaker.
+   - Module 5 (What-If Simulator): Scenario buttons ("Save ₹200/wk", "Income drops by 20%") with sliders to project immediate impact on Buffer Days and Resilience Score without real transactions.
+   - Module 6 (AI Financial Guidance): Chat interface with preset quick-prompts ("How much should I save?", "Can I afford this loan?") that return plain-language explanations.
+
+5. Peripheral Drawers & Bottom Navigation:
+   - Module 7 (Data Control): Account connection list with one-tap Revoke Access and Delete Data buttons.
+   - Module 8 (Smart Notifications): Urgency vs FYI grouped alerts with notification frequency control setting.
+   - Module 9 (System Loop Visualizer): Footer banner depicting continuous evaluation (Income Event -> Cash Flow Analysis -> Score Update -> Risk Check -> Dashboard Refresh).
+   - Bottom 5-Tab Bar: [Home] [Resilience] [Save] [Credit] [Guidance].
+
+Ensure all components fetch and update state dynamically using our Express API (`GET /api/dashboard/:userId`, `POST /api/savings/calculate`).

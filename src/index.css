@@ -1,0 +1,99 @@
+@import url("https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap");
+@import "tailwindcss";
+
+:root {
+  font-family: "DM Sans", ui-sans-serif, system-ui, sans-serif;
+  color: #15231f;
+  background: #f7f8f3;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  min-width: 320px;
+  min-height: 100vh;
+  margin: 0;
+  background:
+    radial-gradient(circle at 10% -10%, rgba(205, 231, 196, 0.48), transparent 26rem),
+    #f7f8f3;
+}
+
+button,
+input,
+select {
+  font: inherit;
+}
+
+button {
+  cursor: pointer;
+}
+
+.font-display {
+  font-family: "Space Grotesk", ui-sans-serif, system-ui, sans-serif;
+}
+
+.grid-paper {
+  background-image:
+    linear-gradient(rgba(26, 83, 65, 0.05) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(26, 83, 65, 0.05) 1px, transparent 1px);
+  background-size: 20px 20px;
+}
+
+.balance-glow {
+  box-shadow: 0 12px 45px rgba(23, 83, 60, 0.13);
+}
+
+.soft-shadow {
+  box-shadow: 0 8px 28px rgba(32, 54, 46, 0.07);
+}
+
+.scrollbar-hidden {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.scrollbar-hidden::-webkit-scrollbar {
+  display: none;
+}
+
+@keyframes float-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-float-in {
+  animation: float-in 400ms ease-out both;
+}
+
+.delay-1 {
+  animation-delay: 70ms;
+}
+
+.delay-2 {
+  animation-delay: 140ms;
+}
+
+.delay-3 {
+  animation-delay: 210ms;
+}
+
+.focus-ring:focus-visible {
+  outline: 3px solid rgba(238, 123, 78, 0.45);
+  outline-offset: 2px;
+}
+
+@media (min-width: 768px) {
+  .desktop-border {
+    border-left: 1px solid #e5e9df;
+  }
+}

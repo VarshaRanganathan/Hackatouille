@@ -4,7 +4,9 @@
   "description": "Financial resilience for individuals with irregular and gig-based incomes.",
   "main": "index.js",
   "scripts": {
-    "start": "node server.js",
+    "build": "vite build",
+    "dev": "vite",
+    "start": "npm run build && node server.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "repository": {
@@ -21,8 +23,15 @@
   "homepage": "https://github.com/VarshaRanganathan/Hackatouille#readme",
   "dependencies": {
     "@supabase/supabase-js": "^2.115.0",
+    "@tailwindcss/vite": "^4.3.3",
+    "@vitejs/plugin-react": "^6.1.1",
     "cors": "^2.8.6",
     "dotenv": "^17.4.2",
-    "express": "^5.2.1"
+    "express": "^5.2.1",
+    "lucide-react": "^1.40.0",
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8",
+    "tailwindcss": "^4.3.3",
+    "vite": "^8.2.2"
   }
 }
