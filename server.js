@@ -12,6 +12,7 @@ const {
   ValidationError,
   normalizeOnboardingPayload,
   calculateMetrics,
+  calculateSafeToSave,
   buildRecurringExpenses,
   buildSyntheticIncomeTransactions,
   buildUpcomingBills,
@@ -156,6 +157,56 @@ function getWorkTypeLabel(userType) {
   return "Delivery / Gig Worker";
 }
 
+function deriveDashboardMetrics(profile, expenses, transactions) {
+  const amountForExpense = (name) =>
+    Number(
+      expenses.find(
+        (expense) => String(expense.name).toLowerCase() === name.toLowerCase(),
+      )?.amount,
+    ) || 0;
+  const transactionAmount = (category) =>
+    transactions
+      .filter((transaction) => transaction.category === category)
+      .reduce(
+        (sum, transaction) => sum + (Number(transaction.amount) || 0),
+        0,
+      );
+
+  const baseBalance = transactionAmount("current_balance");
+  const transferredSavings = transactionAmount("savings_transfer");
+  const currentBalance = Math.max(0, baseBalance - transferredSavings);
+  const currentSavings =
+    transactionAmount("emergency_savings") + transferredSavings;
+  const incomeTransactions = transactions.filter(
+    (transaction) => transaction.category === "work_income",
+  );
+  const avgDailyIncome = incomeTransactions.length
+    ? incomeTransactions.reduce(
+        (sum, transaction) => sum + (Number(transaction.amount) || 0),
+        0,
+      ) / incomeTransactions.length
+    : 0;
+  const workType = getWorkTypeLabel(profile.user_type);
+  const metrics = calculateMetrics({
+    rent: amountForExpense("Rent"),
+    food: amountForExpense("Food"),
+    utilities: amountForExpense("Electricity"),
+    transport: amountForExpense("Fuel and transport"),
+    debt: amountForExpense("Existing debt"),
+    currentBalance,
+    avgDailyIncome,
+    workType,
+  });
+
+  return {
+    currentBalance,
+    currentSavings,
+    avgDailyIncome,
+    workType,
+    ...metrics,
+  };
+}
+
 app.post("/api/users/onboard", async (req, res) => {
   let createdAuthUserId = null;
   try {
@@ -176,7 +227,12 @@ app.post("/api/users/onboard", async (req, res) => {
             payload.existing_debt,
         ) || 0,
       current_balance: Number(payload.current_balance) || 0,
+      current_savings: Number(payload.current_savings) || 0,
       emergency_goal: Number(payload.emergency_goal) || 5000,
+      work_days_per_week: Number(payload.work_days_per_week) || 0,
+      goal_months: Number(payload.goal_months) || 0,
+      household_size: Number(payload.household_size) || 0,
+      dependents: Number(payload.dependents) || 0,
     });
     const existingIdentity = await resolveRequestIdentity(req);
     let userId = existingIdentity?.userId;
@@ -248,6 +304,18 @@ app.post("/api/users/onboard", async (req, res) => {
         description: "Balance entered during onboarding",
         transaction_date: new Date().toISOString().slice(0, 10),
       },
+      ...(answers.currentSavings > 0
+        ? [
+            {
+              user_id: userId,
+              amount: answers.currentSavings,
+              type: "income",
+              category: "emergency_savings",
+              description: "Emergency savings entered during onboarding",
+              transaction_date: new Date().toISOString().slice(0, 10),
+            },
+          ]
+        : []),
       ...buildSyntheticIncomeTransactions(userId, answers),
     ];
     ensureDatabaseResult(
@@ -279,12 +347,16 @@ app.post("/api/users/onboard", async (req, res) => {
         emergency_goal: answers.emergencyGoal,
       },
       current_balance: answers.currentBalance,
+      current_savings: answers.currentSavings,
+      emergency_goal: answers.emergencyGoal,
       monthly_essential_expenses: metrics.monthlyEssentialExpenses,
       daily_burn_rate: metrics.dailyBurnRate,
       buffer_days: metrics.bufferDays,
       resilience_score: metrics.resilienceScore,
       income_stability_score: metrics.incomeStabilityScore,
       volatility_score: metrics.volatilityScore,
+      expected_14_day_income: metrics.expected14DayIncome,
+      affordability_ceiling: metrics.affordabilityCeiling,
       upcoming_bills: buildUpcomingBills(expenses),
       score,
     });
@@ -311,10 +383,13 @@ app.get("/api/dashboard/active", async (req, res) => {
         onboarded: false,
         profile: null,
         current_balance: 0,
+        current_savings: 0,
+        emergency_goal: 0,
         resilience_score: 0,
         buffer_days: 0,
         daily_burn_rate: 0,
         monthly_essential_expenses: 0,
+        affordability_ceiling: 0,
         upcoming_bills: [],
       });
     }
@@ -368,47 +443,36 @@ app.get("/api/dashboard/active", async (req, res) => {
         onboarded: false,
         profile: null,
         current_balance: 0,
+        current_savings: 0,
+        emergency_goal: 0,
         resilience_score: 0,
         buffer_days: 0,
         daily_burn_rate: 0,
         monthly_essential_expenses: 0,
+        affordability_ceiling: 0,
         upcoming_bills: [],
       });
     }
 
-    const currentBalance =
-      Number(
-        transactions.find(
-          (transaction) => transaction.category === "current_balance",
-        )?.amount,
-      ) || 0;
-    const incomeTransactions = transactions.filter(
-      (transaction) => transaction.category === "work_income",
-    );
-    const avgDailyIncome = incomeTransactions.length
-      ? incomeTransactions.reduce(
-          (sum, transaction) => sum + (Number(transaction.amount) || 0),
-          0,
-        ) / incomeTransactions.length
-      : 0;
-    const monthlyEssentialExpenses = expenses.reduce(
-      (sum, expense) => sum + (Number(expense.amount) || 0),
-      0,
-    );
-    const dailyBurnRate = monthlyEssentialExpenses / 30;
+    const metrics = deriveDashboardMetrics(profile, expenses, transactions);
 
     return res.json({
       onboarded: true,
       profile: {
         ...profile,
-        work_type: getWorkTypeLabel(profile.user_type),
-        avg_daily_income: avgDailyIncome,
+        work_type: metrics.workType,
+        avg_daily_income: metrics.avgDailyIncome,
       },
-      current_balance: currentBalance,
-      resilience_score: Number(score?.score) || 0,
-      buffer_days: Number(score?.buffer_days) || 0,
-      daily_burn_rate: dailyBurnRate,
-      monthly_essential_expenses: monthlyEssentialExpenses,
+      current_balance: metrics.currentBalance,
+      current_savings: metrics.currentSavings,
+      resilience_score: metrics.resilienceScore,
+      buffer_days: metrics.bufferDays,
+      daily_burn_rate: metrics.dailyBurnRate,
+      monthly_essential_expenses: metrics.monthlyEssentialExpenses,
+      income_stability_score: metrics.incomeStabilityScore,
+      volatility_score: metrics.volatilityScore,
+      expected_14_day_income: metrics.expected14DayIncome,
+      affordability_ceiling: metrics.affordabilityCeiling,
       upcoming_bills: buildUpcomingBills(expenses),
     });
   } catch (error) {
@@ -444,12 +508,14 @@ app.post("/api/savings/calculate", requireActiveUser, async (req, res) => {
       });
     }
 
-    const dailyBurnRate =
+    const dailyBurnRate = Math.max(
+      1,
       expenses.reduce(
         (sum, expense) => sum + (Number(expense.amount) || 0),
         0,
-      ) / 30;
-    const safeToSave = Math.max(0, (todayInflow - dailyBurnRate) * 0.8);
+      ) / 30,
+    );
+    const safeToSave = calculateSafeToSave(todayInflow, dailyBurnRate);
 
     return res.json({
       today_inflow: todayInflow,
@@ -460,6 +526,82 @@ app.post("/api/savings/calculate", requireActiveUser, async (req, res) => {
   } catch (error) {
     console.error("Savings calculation failed:", error.message);
     return res.status(500).json({ error: "Unable to calculate savings." });
+  }
+});
+
+app.post("/api/savings/commit", requireActiveUser, async (req, res) => {
+  try {
+    const amount = Number(req.body.amount) || 0;
+    if (!Number.isFinite(amount) || amount <= 0) {
+      return res.status(400).json({
+        error: "amount must be greater than zero.",
+      });
+    }
+
+    const [profileResult, expensesResult, transactionsResult] =
+      await Promise.all([
+        req.db
+          .from("profiles")
+          .select("*")
+          .eq("id", req.activeUserId)
+          .single(),
+        req.db
+          .from("recurring_expenses")
+          .select("*")
+          .eq("user_id", req.activeUserId),
+        req.db
+          .from("transactions")
+          .select("amount, type, category")
+          .eq("user_id", req.activeUserId),
+      ]);
+    const profile = ensureDatabaseResult(
+      profileResult,
+      "Unable to fetch the profile",
+    );
+    const expenses = ensureDatabaseResult(
+      expensesResult,
+      "Unable to fetch recurring expenses",
+    );
+    const transactions = ensureDatabaseResult(
+      transactionsResult,
+      "Unable to fetch transactions",
+    );
+    const before = deriveDashboardMetrics(profile, expenses, transactions);
+
+    if (amount > before.currentBalance) {
+      return res.status(400).json({
+        error: "The saving amount cannot exceed your available balance.",
+      });
+    }
+
+    const transfer = {
+      user_id: req.activeUserId,
+      amount,
+      type: "expense",
+      category: "savings_transfer",
+      description: "Moved from available balance to emergency savings",
+      transaction_date: new Date().toISOString().slice(0, 10),
+    };
+    ensureDatabaseResult(
+      await req.db.from("transactions").insert(transfer),
+      "Unable to save the transfer",
+    );
+    const after = deriveDashboardMetrics(profile, expenses, [
+      ...transactions,
+      transfer,
+    ]);
+
+    return res.json({
+      success: true,
+      saved_amount: amount,
+      current_balance: after.currentBalance,
+      current_savings: after.currentSavings,
+      buffer_days: after.bufferDays,
+      resilience_score: after.resilienceScore,
+    });
+  } catch (error) {
+    console.error("Savings transfer failed:", error.message);
+    return res.status(500).json({ error: "Unable to save this amount." });
   }
 });
 
