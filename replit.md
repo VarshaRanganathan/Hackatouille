@@ -20,17 +20,11 @@ Set these environment secrets before using the Supabase-backed endpoints:
 
 ## API endpoints
 
-- `GET /api/users` — requires a Supabase bearer token for a profile whose
-  `user_type` is `admin`
-- `GET /api/dashboard/:userId` — requires a Supabase bearer token and only
-  permits the authenticated user's own ID
-- `POST /api/savings/calculate` with `{ "dailyIncome": 250, "dailyExpenses": 100 }`
+- `POST /api/users/onboard` — saves the onboarding answers, recurring
+  expenses, synthetic income history, and initial resilience metrics
+- `GET /api/dashboard/active` — returns the active onboarded user's dashboard
+- `POST /api/savings/calculate` with `{ "today_inflow": 1200 }`
+- `POST /api/users/reset` — clears the active user's onboarding data
 
-For authenticated routes, send the user's Supabase access token:
-
-```text
-Authorization: Bearer <access-token>
-```
-
-Database requests use that token so Supabase Row Level Security policies are
-applied to the authenticated user.
+The active user is scoped by a signed, HTTP-only session cookie. Supabase
+bearer tokens are also supported when the app has an authenticated user.
