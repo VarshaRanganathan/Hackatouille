@@ -1,6 +1,28 @@
 const { createClient } = require("@supabase/supabase-js");
 
-const supabaseUrl = process.env.SUPABASE_URL;
+function normalizeSupabaseUrl(value) {
+  const raw = String(value || "")
+    .trim()
+    .replace(/^SUPABASE_URL\s*=\s*/i, "")
+    .replace(/^['"]|['"]$/g, "")
+    .replace(/\/+$/, "");
+
+  if (/^https?:\/\/[a-z0-9-]+\.supabase\.co$/i.test(raw)) {
+    return raw;
+  }
+  if (/^[a-z0-9-]+\.supabase\.co$/i.test(raw)) {
+    return `https://${raw}`;
+  }
+  if (/^[a-z0-9]{15,30}$/i.test(raw)) {
+    return `https://${raw}.supabase.co`;
+  }
+
+  throw new Error(
+    "SUPABASE_URL must be a Supabase Project URL, project hostname, or project reference.",
+  );
+}
+
+const supabaseUrl = normalizeSupabaseUrl(process.env.SUPABASE_URL);
 const supabaseKey = process.env.SUPABASE_KEY;
 
 if (!supabaseUrl || !supabaseKey) {
