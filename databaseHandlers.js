@@ -16,7 +16,19 @@ function toNumber(payload, keys, fallback = 0) {
   return value;
 }
 
+function hasValue(payload, keys) {
+  return keys.some((key) => {
+    const value = payload[key];
+    return value !== undefined && value !== null && String(value).trim() !== "";
+  });
+}
+
 function normalizeOnboardingPayload(payload = {}) {
+  const fullName = String(payload.full_name || payload.name || "").trim();
+  if (fullName.length < 2) {
+    throw new ValidationError("full_name is required.");
+  }
+
   const workType =
     String(payload.work_type || payload.occupation || "Gig / Freelance")
       .trim() || "Gig / Freelance";
@@ -44,9 +56,18 @@ function normalizeOnboardingPayload(payload = {}) {
     "current_liquid_balance",
   ]);
   const emergencyGoal = toNumber(payload, ["emergency_goal"], 5000);
+  const currentSavings = toNumber(payload, ["current_savings"], 0);
+  const workDaysPerWeek = toNumber(payload, ["work_days_per_week"], 0);
+  const goalMonths = toNumber(payload, ["goal_months"], 6);
+  const householdSize = toNumber(payload, ["household_size"], 1);
+  const dependents = toNumber(payload, ["dependents"], 0);
 
   if (avgDailyIncome <= 0) {
     throw new ValidationError("avg_daily_income must be greater than zero.");
+  }
+
+  if (!hasValue(payload, ["current_balance", "current_liquid_balance"])) {
+    throw new ValidationError("current_balance is required.");
   }
 
   const monthlyEssentialExpenses =
@@ -70,10 +91,7 @@ function normalizeOnboardingPayload(payload = {}) {
   );
 
   return {
-    fullName:
-      String(payload.full_name || payload.name || "ResilientBank User")
-        .trim()
-        .slice(0, 120) || "ResilientBank User",
+    fullName: fullName.slice(0, 120),
     workType,
     avgDailyIncome,
     rent,
@@ -82,7 +100,12 @@ function normalizeOnboardingPayload(payload = {}) {
     transport,
     debt,
     currentBalance,
+    currentSavings,
     emergencyGoal,
+    workDaysPerWeek,
+    goalMonths,
+    householdSize,
+    dependents,
     incomeLow: Math.min(incomeLow, incomeHigh),
     incomeHigh: Math.max(incomeLow, incomeHigh),
   };
@@ -97,38 +120,54 @@ function getIncomeStabilityScore(workType) {
 }
 
 function calculateMetrics(answers) {
-  const monthlyEssentialExpenses =
-    answers.rent +
-    answers.food +
-    answers.utilities +
-    answers.transport +
-    answers.debt;
-  const dailyBurnRate = monthlyEssentialExpenses / 30;
-  const bufferDays = answers.currentBalance / dailyBurnRate;
-  const bufferScore = Math.min(100, (bufferDays / 30) * 100);
+  const rent = Number(answers.rent) || 0;
+  const food = Number(answers.food) || 0;
+  const utilities = Number(answers.utilities) || 0;
+  const transport = Number(answers.transport) || 0;
+  const debt = Number(answers.debt) || 0;
+  const currentBalance = Number(answers.currentBalance) || 0;
+  const avgDailyIncome = Number(answers.avgDailyIncome) || 0;
+  const monthlyEssentialExpenses = rent + food + utilities + transport + debt;
+  const dailyBurnRate = Math.max(1, monthlyEssentialExpenses / 30);
+  const bufferDays = Math.max(0, Math.floor(currentBalance / dailyBurnRate));
   const incomeStabilityScore = getIncomeStabilityScore(answers.workType);
   const volatilityScore = 75;
-  const resilienceScore = Math.max(
-    0,
-    Math.min(
-      100,
-      Math.round(
-        bufferScore * 0.5 +
-          incomeStabilityScore * 0.3 +
-          volatilityScore * 0.2,
-      ),
+  const resilienceScore = Math.min(
+    100,
+    Math.round(
+      Math.min(1, bufferDays / 30) * 50 +
+        incomeStabilityScore * 0.3 +
+        volatilityScore * 0.2,
     ),
+  );
+  const expected14DayIncome = avgDailyIncome * 14;
+  const affordabilityCeiling = Math.max(
+    0,
+    Math.round((expected14DayIncome - dailyBurnRate * 14) * 0.4),
   );
 
   return {
     monthlyEssentialExpenses,
     dailyBurnRate,
     bufferDays,
-    bufferScore,
     incomeStabilityScore,
     volatilityScore,
     resilienceScore,
+    expected14DayIncome,
+    affordabilityCeiling,
   };
+}
+
+function calculateSafeToSave(todayInflow, dailyBurnRate) {
+  const inflow = Number(todayInflow) || 0;
+  const burn = Math.max(1, Number(dailyBurnRate) || 0);
+  return Math.max(0, Math.round((inflow - burn) * 0.8));
+}
+
+function calculateAffordabilityCeiling(expected14DayIncome, dailyBurnRate) {
+  const expectedIncome = Number(expected14DayIncome) || 0;
+  const burn = Math.max(1, Number(dailyBurnRate) || 0);
+  return Math.max(0, Math.round((expectedIncome - burn * 14) * 0.4));
 }
 
 function buildRecurringExpenses(userId, answers) {
@@ -146,10 +185,10 @@ function buildRecurringExpenses(userId, answers) {
       const dueDate = new Date();
       dueDate.setUTCDate(dueDate.getUTCDate() + dueInDays);
       return {
-      user_id: userId,
-      name,
-      amount,
-      frequency: "monthly",
+        user_id: userId,
+        name,
+        amount,
+        frequency: "monthly",
         due_date: dueDate.toISOString().slice(0, 10),
       };
     });
@@ -207,6 +246,8 @@ module.exports = {
   ValidationError,
   normalizeOnboardingPayload,
   calculateMetrics,
+  calculateSafeToSave,
+  calculateAffordabilityCeiling,
   buildRecurringExpenses,
   buildSyntheticIncomeTransactions,
   buildUpcomingBills,

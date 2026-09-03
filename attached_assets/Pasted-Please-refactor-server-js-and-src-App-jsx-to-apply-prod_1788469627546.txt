@@ -1,0 +1,23 @@
+Please refactor `server.js` and `src/App.jsx` to apply production-grade financial calculations, airtight input validation, and zero-loophole state management:
+
+1. Watertight Backend Formulas (`server.js`):
+   - Safely convert all questionnaire values to numbers using `Number(val) || 0`.
+   - Calculate `dailyBurnRate = (rent + food + utilities + transport + debt) / 30`. Ensure `dailyBurnRate` defaults to a minimum of 1 to prevent division by zero.
+   - Compute `bufferDays = Math.max(0, Math.floor(currentBalance / dailyBurnRate))`.
+   - Compute `resilienceScore = Math.min(100, Math.round((Math.min(1, bufferDays / 30) * 50) + (incomeStability * 0.3) + (volatilityScore * 0.2)))`.
+   - Compute `safeToSave = Math.max(0, Math.round((todayInflow - dailyBurnRate) * 0.8))`.
+   - Compute `affordabilityCeiling = Math.max(0, Math.round((expected14DayIncome - (dailyBurnRate * 14)) * 0.4))`.
+
+2. Eliminate Frontend Loops & Edge-Case Bugs (`src/App.jsx`):
+   - Form Validation: Block users from clicking "Next" in onboarding if required fields (Name, Income, Balance) are empty or negative.
+   - Responsive Navigation Padding: Enforce `pb-28` on every tab screen so content never gets covered by the bottom navigation bar.
+   - Interactive State Sync:
+     * Tapping [ Save ₹300 ] reduces Available Balance, increases Emergency Savings progress bar, and re-calculates Buffer Days instantly.
+     * Credit Calculator: Dragging the requested loan amount above `affordabilityCeiling` immediately switches the UI from Green Approved state to Amber Circuit Breaker state with a safer counter-offer.
+     * What-If Simulator: Moving the savings slider dynamically updates Emergency Savings, Buffer Days, and Resilience Score in real time with zero layout jumps.
+
+3. Plain-Language Explainability (Every Core Number):
+   - Ensure every card with a financial metric has a "Why?" button that opens a clean bottom sheet breaking down the exact formula in plain English without jargon.
+
+4. Data Reset & Privacy Assurance:
+   - The Data Control drawer must include a clear "Reset App / Onboard New User" button that clears `localStorage`, resets server session state, and seamlessly returns to Screen 1 of onboarding.
