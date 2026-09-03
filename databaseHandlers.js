@@ -133,24 +133,26 @@ function calculateMetrics(answers) {
 
 function buildRecurringExpenses(userId, answers) {
   const definitions = [
-    ["rent", "Rent", answers.rent, 5],
-    ["food", "Food", answers.food, 7],
-    ["electricity", "Electricity", answers.utilities, 3],
-    ["fuel", "Fuel and transport", answers.transport, 4],
-    ["debt", "Existing debt", answers.debt, 10],
+    ["Rent", answers.rent, 5],
+    ["Food", answers.food, 7],
+    ["Electricity", answers.utilities, 3],
+    ["Fuel and transport", answers.transport, 4],
+    ["Existing debt", answers.debt, 10],
   ];
 
   return definitions
-    .filter(([, , amount]) => amount > 0)
-    .map(([category, name, amount, dueInDays]) => ({
+    .filter(([, amount]) => amount > 0)
+    .map(([name, amount, dueInDays]) => {
+      const dueDate = new Date();
+      dueDate.setUTCDate(dueDate.getUTCDate() + dueInDays);
+      return {
       user_id: userId,
-      category,
       name,
       amount,
       frequency: "monthly",
-      is_essential: true,
-      due_in_days: dueInDays,
-    }));
+        due_date: dueDate.toISOString().slice(0, 10),
+      };
+    });
 }
 
 function buildSyntheticIncomeTransactions(userId, answers) {
@@ -171,21 +173,32 @@ function buildSyntheticIncomeTransactions(userId, answers) {
       category: "work_income",
       description: "Synthetic onboarding income baseline",
       transaction_date: transactionDate.toISOString().slice(0, 10),
-      is_synthetic: true,
     };
   });
 }
 
 function buildUpcomingBills(expenses) {
+  const today = new Date();
+  today.setUTCHours(0, 0, 0, 0);
+
   return expenses
     .filter((expense) => expense.amount > 0)
-    .sort((left, right) => left.due_in_days - right.due_in_days)
+    .map((expense) => {
+      const dueDate = new Date(`${expense.due_date}T00:00:00Z`);
+      const dueInDays = Math.max(
+        0,
+        Math.ceil((dueDate.getTime() - today.getTime()) / 86400000),
+      );
+      return { ...expense, dueInDays };
+    })
+    .sort((left, right) => left.dueInDays - right.dueInDays)
     .map((expense) => ({
-      id: expense.id || `${expense.category}-${expense.due_in_days}`,
+      id: expense.id || `${expense.name}-${expense.due_date}`,
       name: expense.name,
-      category: expense.category,
+      category: expense.name.toLowerCase().replace(/\s+/g, "_"),
       amount: Number(expense.amount),
-      due_in_days: expense.due_in_days,
+      due_date: expense.due_date,
+      due_in_days: expense.dueInDays,
       frequency: expense.frequency,
     }));
 }

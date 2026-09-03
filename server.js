@@ -100,7 +100,7 @@ function clearActiveUserCookie(req, res) {
 async function resolveRequestIdentity(req) {
   const cookieUserId = verifyActiveUser(parseCookies(req)[SESSION_COOKIE]);
   if (cookieUserId) {
-    return { userId: cookieUserId, db: supabase };
+    return { userId: cookieUserId, db: supabase, source: "session" };
   }
 
   const authorization = req.get("authorization");
@@ -115,6 +115,7 @@ async function resolveRequestIdentity(req) {
   return {
     userId: data.user.id,
     db: createAuthenticatedClient(accessToken),
+    source: "bearer",
   };
 }
 
@@ -129,6 +130,7 @@ async function requireActiveUser(req, res, next) {
 
   req.activeUserId = identity.userId;
   req.db = identity.db;
+  req.identitySource = identity.source;
   return next();
 }
 
@@ -141,7 +143,21 @@ function ensureDatabaseResult(result, action) {
   return result.data;
 }
 
+function getProfileUserType(workType) {
+  const normalized = String(workType || "").toLowerCase();
+  if (normalized.includes("vendor")) return "vendor";
+  if (normalized.includes("freelance")) return "freelancer";
+  return "gig_worker";
+}
+
+function getWorkTypeLabel(userType) {
+  if (userType === "vendor") return "Vendor";
+  if (userType === "freelancer") return "Freelancer";
+  return "Delivery / Gig Worker";
+}
+
 app.post("/api/users/onboard", async (req, res) => {
+  let createdAuthUserId = null;
   try {
     const payload = req.body && typeof req.body === "object" ? req.body : {};
     const answers = normalizeOnboardingPayload({
@@ -163,8 +179,29 @@ app.post("/api/users/onboard", async (req, res) => {
       emergency_goal: Number(payload.emergency_goal) || 5000,
     });
     const existingIdentity = await resolveRequestIdentity(req);
-    const userId = existingIdentity?.userId || crypto.randomUUID();
+    let userId = existingIdentity?.userId;
     const db = existingIdentity?.db || supabase;
+
+    if (!userId) {
+      const authResult = await supabase.auth.admin.createUser({
+        email: `onboarding-${crypto.randomUUID()}@resilientbank.local`,
+        password: crypto.randomBytes(32).toString("base64url"),
+        email_confirm: true,
+        user_metadata: { managed_by: "resilientbank_onboarding" },
+      });
+
+      if (authResult.error || !authResult.data.user) {
+        throw new Error(
+          `Unable to create the active user: ${
+            authResult.error?.message || "No user was returned."
+          }`,
+        );
+      }
+
+      userId = authResult.data.user.id;
+      createdAuthUserId = userId;
+    }
+
     const metrics = calculateMetrics(answers);
 
     const profile = ensureDatabaseResult(
@@ -174,12 +211,7 @@ app.post("/api/users/onboard", async (req, res) => {
           {
             id: userId,
             full_name: answers.fullName,
-            user_type: "member",
-            work_type: answers.workType,
-            avg_daily_income: answers.avgDailyIncome,
-            current_balance: answers.currentBalance,
-            emergency_goal: answers.emergencyGoal,
-            onboarding_complete: true,
+            user_type: getProfileUserType(answers.workType),
           },
           { onConflict: "id" },
         )
@@ -207,7 +239,17 @@ app.post("/api/users/onboard", async (req, res) => {
       "Unable to save recurring expenses",
     );
 
-    const transactions = buildSyntheticIncomeTransactions(userId, answers);
+    const transactions = [
+      {
+        user_id: userId,
+        amount: answers.currentBalance,
+        type: "income",
+        category: "current_balance",
+        description: "Balance entered during onboarding",
+        transaction_date: new Date().toISOString().slice(0, 10),
+      },
+      ...buildSyntheticIncomeTransactions(userId, answers),
+    ];
     ensureDatabaseResult(
       await db.from("transactions").insert(transactions),
       "Unable to create the income baseline",
@@ -219,12 +261,7 @@ app.post("/api/users/onboard", async (req, res) => {
         .insert({
           user_id: userId,
           score: metrics.resilienceScore,
-          buffer_days: metrics.bufferDays,
-          buffer_score: metrics.bufferScore,
-          income_stability_score: metrics.incomeStabilityScore,
-          volatility_score: metrics.volatilityScore,
-          daily_burn_rate: metrics.dailyBurnRate,
-          monthly_essential_expenses: metrics.monthlyEssentialExpenses,
+          buffer_days: Math.round(metrics.bufferDays),
         })
         .select("*")
         .single(),
@@ -235,7 +272,12 @@ app.post("/api/users/onboard", async (req, res) => {
     return res.status(201).json({
       success: true,
       active_user_id: userId,
-      profile,
+      profile: {
+        ...profile,
+        work_type: answers.workType,
+        avg_daily_income: answers.avgDailyIncome,
+        emergency_goal: answers.emergencyGoal,
+      },
       current_balance: answers.currentBalance,
       monthly_essential_expenses: metrics.monthlyEssentialExpenses,
       daily_burn_rate: metrics.dailyBurnRate,
@@ -247,6 +289,14 @@ app.post("/api/users/onboard", async (req, res) => {
       score,
     });
   } catch (error) {
+    if (createdAuthUserId) {
+      const cleanupResult = await supabase.auth.admin.deleteUser(
+        createdAuthUserId,
+      );
+      if (cleanupResult.error) {
+        console.error("Onboarding cleanup error:", cleanupResult.error);
+      }
+    }
     console.error("Onboarding error:", error);
     const status = error instanceof ValidationError ? error.statusCode : 500;
     return res.status(status).json({ error: error.message });
@@ -271,7 +321,8 @@ app.get("/api/dashboard/active", async (req, res) => {
 
     const activeUserId = identity.userId;
     const db = identity.db;
-    const [profileResult, scoreResult, expensesResult] = await Promise.all([
+    const [profileResult, scoreResult, expensesResult, transactionsResult] =
+      await Promise.all([
       db
         .from("profiles")
         .select("*")
@@ -281,14 +332,18 @@ app.get("/api/dashboard/active", async (req, res) => {
         .from("resilience_scores")
         .select("*")
         .eq("user_id", activeUserId)
-        .order("created_at", { ascending: false })
+        .order("updated_at", { ascending: false })
         .limit(1)
         .maybeSingle(),
       db
         .from("recurring_expenses")
         .select("*")
         .eq("user_id", activeUserId),
-    ]);
+      db
+        .from("transactions")
+        .select("amount, type, category")
+        .eq("user_id", activeUserId),
+      ]);
 
     const profile = ensureDatabaseResult(
       profileResult,
@@ -301,6 +356,10 @@ app.get("/api/dashboard/active", async (req, res) => {
     const expenses = ensureDatabaseResult(
       expensesResult,
       "Unable to fetch recurring expenses",
+    );
+    const transactions = ensureDatabaseResult(
+      transactionsResult,
+      "Unable to fetch transactions",
     );
 
     if (!profile) {
@@ -317,15 +376,39 @@ app.get("/api/dashboard/active", async (req, res) => {
       });
     }
 
+    const currentBalance =
+      Number(
+        transactions.find(
+          (transaction) => transaction.category === "current_balance",
+        )?.amount,
+      ) || 0;
+    const incomeTransactions = transactions.filter(
+      (transaction) => transaction.category === "work_income",
+    );
+    const avgDailyIncome = incomeTransactions.length
+      ? incomeTransactions.reduce(
+          (sum, transaction) => sum + (Number(transaction.amount) || 0),
+          0,
+        ) / incomeTransactions.length
+      : 0;
+    const monthlyEssentialExpenses = expenses.reduce(
+      (sum, expense) => sum + (Number(expense.amount) || 0),
+      0,
+    );
+    const dailyBurnRate = monthlyEssentialExpenses / 30;
+
     return res.json({
       onboarded: true,
-      profile,
-      current_balance: Number(profile.current_balance) || 0,
+      profile: {
+        ...profile,
+        work_type: getWorkTypeLabel(profile.user_type),
+        avg_daily_income: avgDailyIncome,
+      },
+      current_balance: currentBalance,
       resilience_score: Number(score?.score) || 0,
       buffer_days: Number(score?.buffer_days) || 0,
-      daily_burn_rate: Number(score?.daily_burn_rate) || 0,
-      monthly_essential_expenses:
-        Number(score?.monthly_essential_expenses) || 0,
+      daily_burn_rate: dailyBurnRate,
+      monthly_essential_expenses: monthlyEssentialExpenses,
       upcoming_bills: buildUpcomingBills(expenses),
     });
   } catch (error) {
@@ -345,25 +428,27 @@ app.post("/api/savings/calculate", requireActiveUser, async (req, res) => {
       });
     }
 
-    const score = ensureDatabaseResult(
+    const expenses = ensureDatabaseResult(
       await req.db
-        .from("resilience_scores")
-        .select("daily_burn_rate")
+        .from("recurring_expenses")
+        .select("amount")
         .eq("user_id", req.activeUserId)
-        .order("created_at", { ascending: false })
-        .limit(1)
-        .maybeSingle(),
-      "Unable to fetch the daily burn rate",
+        ,
+      "Unable to fetch recurring expenses",
     );
 
-    if (!score) {
+    if (!expenses.length) {
       return res.status(409).json({
         error: "Complete onboarding before calculating savings.",
         code: "ONBOARDING_REQUIRED",
       });
     }
 
-    const dailyBurnRate = Number(score.daily_burn_rate) || 0;
+    const dailyBurnRate =
+      expenses.reduce(
+        (sum, expense) => sum + (Number(expense.amount) || 0),
+        0,
+      ) / 30;
     const safeToSave = Math.max(0, (todayInflow - dailyBurnRate) * 0.8);
 
     return res.json({
@@ -393,6 +478,15 @@ app.post("/api/users/reset", requireActiveUser, async (req, res) => {
         ),
         `Unable to clear ${table}`,
       );
+    }
+
+    if (req.identitySource === "session") {
+      const authResult = await supabase.auth.admin.deleteUser(req.activeUserId);
+      if (authResult.error) {
+        throw new Error(
+          `Unable to remove the active user: ${authResult.error.message}`,
+        );
+      }
     }
 
     clearActiveUserCookie(req, res);
