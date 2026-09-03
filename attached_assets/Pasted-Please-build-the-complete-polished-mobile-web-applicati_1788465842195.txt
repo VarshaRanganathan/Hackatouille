@@ -1,0 +1,45 @@
+Please build the complete, polished mobile web application for ResilientBank in `src/App.jsx` using React and Tailwind CSS. The interface must use simple, everyday language that gig workers and freelancers can easily understand—avoiding complex banking jargon.
+
+Use a modern Indian fintech visual design: deep emerald green (`#0F4135`) for brand buttons/accents, soft off-white background (`#F8F9FA`), clean rounded white cards, dark charcoal text, green for safe/positive numbers, and amber for bill alerts. Use Indian Rupees (₹) everywhere.
+
+Build these core sections and make them accessible through the persistent 5-tab bottom bar [Home] [Resilience] [Save] [Credit] [Guidance]:
+
+1. Top Bar & Simple Profile Switcher:
+   - ResilientBank logo (Shield + Leaf) and a user picker button showing the current name ("Ravi • Delivery Worker").
+   - Clicking the name opens a simple sheet modal to pick between all 30 mock users (`GET /api/users`).
+   - Include quick header buttons for Data Control (lock icon) and Notifications (bell icon).
+
+2. Home Tab:
+   - "How much do I have?": Big clear text showing Available Balance (₹6,850) and Safe-to-Spend (₹2,300).
+   - "What's coming up?": Cards showing upcoming bills (Electricity ₹850 in 3 days, Rent ₹3,200 in 5 days) and expected income (₹8,500 over 14 days) with a 30-day cash flow line chart.
+   - "What should I do today?": Daily recommendation card ("Your earnings were higher this week. You can safely save ₹300 today.") with 3 buttons: [ Save ₹300 ], [ Adjust ], and [ Skip ]. Include a "Why ₹300?" button that opens an easy-to-read mathematical explanation modal.
+   - Quick Resilience snapshot card showing Score (68/100) and Buffer Days ("12 days of bills covered").
+
+3. Resilience Tab:
+   - Resilience Score gauge (68/100) and Buffer Days indicator ("12 days covered").
+   - 30-day balance forecast chart highlighting any low-income periods.
+   - Factor breakdown list (Income steadiness, Savings balance, Cash ups and downs) with an "Explain my score" button that opens a plain-English explanation drawer.
+
+4. Save Tab:
+   - Emergency Goal progress bar (₹3,400 / ₹5,000 target).
+   - Safe-to-Save Calculator: Input boxes for Daily Income and Expenses to calculate safe daily savings (`Income - Expenses - Safety Buffer`).
+   - Choice of saving styles: Round-up spare change, % of Income, or Smart Save.
+   - Automatic guardrail note: "If cash gets low, savings pause automatically to protect your bill money."
+
+5. Credit Tab ("Borrow Safely"):
+   - Purpose selector (Vehicle repair, Medical, Bridge to next income) and an input box for Requested Amount.
+   - Live Affordability Check: Calculates Repayment Capacity (`Income - Essential Expenses`).
+   - If affordable (under ₹4,000): Displays loan terms (e.g., ₹3,000 over 6 weeks) and a button to save the plan.
+   - If too high (e.g., ₹5,000): Triggers the Safety Limit warning ("This amount takes too much of your cash and drops your bill buffer below 7 days") and suggests a safer lower amount.
+
+6. Guidance Tab ("A calm second opinion"):
+   - Top toggle to switch between [ AI Assistant ] and [ What-If Simulator ].
+   - AI Assistant: Quick tap questions ("Can I save ₹500 today?", "Can I afford this loan?") with simple, reassuring answers based on user data.
+   - What-If Simulator: A simple slider ("What if I save ₹200/week?") that dynamically updates projected Emergency Savings, Buffer Days (e.g., 12 -> 14 days), and Resilience Score in real time with a clear note: "This is a test. No real money moves."
+
+7. Drawers & Extras:
+   - Data Control Drawer: List of connected accounts with one-tap "Stop Sharing" and "Delete My Data" buttons.
+   - Smart Notifications Drawer: Categorized into Urgent (Bills due, low cash) and Good to know (Surplus earnings, score updates) with a frequency setting (Quiet, Balanced, Helpful).
+   - System Loop Footer: A subtle visual bar depicting background safety checks (Income received -> Cash flow calculated -> Safety check -> App updated).
+
+Ensure all data updates dynamically using the Express API endpoints (`GET /api/dashboard/:userId`, `POST /api/savings/calculate`). Keep all notification toasts anchored safely at the top of the screen (`z-50`) so they never block buttons.

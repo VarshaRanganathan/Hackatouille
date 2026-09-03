@@ -3,8 +3,8 @@
 
 :root {
   font-family: "DM Sans", ui-sans-serif, system-ui, sans-serif;
-  color: #15231f;
-  background: #f7f8f3;
+  color: #222a27;
+  background: #f8f9fa;
   font-synthesis: none;
   text-rendering: optimizeLegibility;
 }
@@ -18,8 +18,8 @@ body {
   min-height: 100vh;
   margin: 0;
   background:
-    radial-gradient(circle at 10% -10%, rgba(205, 231, 196, 0.48), transparent 26rem),
-    #f7f8f3;
+    radial-gradient(circle at 10% -10%, rgba(204, 229, 218, 0.42), transparent 26rem),
+    #f8f9fa;
 }
 
 button,
@@ -100,7 +100,7 @@ input[type="number"]::-webkit-outer-spin-button {
 }
 
 .focus-ring:focus-visible {
-  outline: 3px solid rgba(238, 123, 78, 0.45);
+  outline: 3px solid rgba(31, 113, 89, 0.32);
   outline-offset: 2px;
 }
 

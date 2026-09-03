@@ -1,43 +1,29 @@
 import { useEffect, useMemo, useState } from "react";
 import {
-  AlertCircle,
+  AlertTriangle,
   ArrowDownRight,
+  ArrowRight,
   ArrowUpRight,
   Bell,
-  BellRing,
   Bot,
+  CalendarDays,
   Check,
   ChevronDown,
-  ChevronRight,
-  CircleHelp,
-  ClipboardCheck,
-  CloudOff,
   CreditCard,
   Database,
-  ExternalLink,
   Gauge,
-  HelpCircle,
   Home,
   Info,
-  Landmark,
+  Leaf,
   LockKeyhole,
-  Menu,
   MessageCircle,
-  MoreHorizontal,
-  Network,
-  PanelRight,
-  Pause,
   PiggyBank,
-  Plus,
   RefreshCw,
-  RotateCcw,
   ShieldCheck,
   SlidersHorizontal,
-  Sparkles,
   Trash2,
   TrendingUp,
-  UserRound,
-  Wallet,
+  WalletCards,
   X,
   Zap,
 } from "lucide-react";
@@ -50,949 +36,757 @@ const tabs = [
   { id: "guidance", label: "Guidance", icon: MessageCircle },
 ];
 
-const fallbackUsers = Array.from({ length: 30 }, (_, index) => ({
+const people = [
+  ["Ravi Kumar", "Delivery Worker"],
+  ["Meera Nair", "Freelance Designer"],
+  ["Arjun Singh", "Cab Driver"],
+  ["Pooja Shah", "Home Baker"],
+  ["Vikram Rao", "Electrician"],
+  ["Ananya Iyer", "Content Writer"],
+  ["Karan Patel", "Delivery Worker"],
+  ["Neha Das", "Tutor"],
+  ["Sanjay Gupta", "Plumber"],
+  ["Ishita Bose", "Photographer"],
+  ["Rahul Menon", "Cab Driver"],
+  ["Kavya Reddy", "Tailor"],
+  ["Amit Joshi", "Mechanic"],
+  ["Sneha Pillai", "Beauty Professional"],
+  ["Dev Malhotra", "Video Editor"],
+  ["Nandini Roy", "Home Chef"],
+  ["Sameer Khan", "Delivery Worker"],
+  ["Ritu Verma", "Tutor"],
+  ["Aditya Jain", "Web Developer"],
+  ["Farah Ali", "Craft Seller"],
+  ["Gopal Yadav", "Electrician"],
+  ["Tanya Kapoor", "Graphic Designer"],
+  ["Manoj Sethi", "Cab Driver"],
+  ["Shreya Kulkarni", "Dance Teacher"],
+  ["Nikhil Bhat", "Photographer"],
+  ["Asha Thomas", "Home Baker"],
+  ["Rohan Desai", "Fitness Coach"],
+  ["Divya Mishra", "Content Writer"],
+  ["Harish Naidu", "Repair Technician"],
+  ["Lakshmi Krishnan", "Tailor"],
+];
+
+const demoUsers = people.map(([full_name, role], index) => ({
   id: `demo-user-${String(index + 1).padStart(2, "0")}`,
-  full_name: [
-    "Maya Patel",
-    "Arjun Menon",
-    "Tara Sharma",
-    "Ravi Kumar",
-    "Nisha Iyer",
-    "Kabir Shah",
-  ][index % 6],
+  full_name,
+  role,
   user_type: index === 0 ? "admin" : "member",
 }));
 
-const fallbackDashboard = (user) => ({
+const demoDashboard = (user) => ({
   profile: user,
-  resilienceScore: { score: 78, buffer_days: 18 },
-  creditOffers: [
-    { id: "demo-offer-1", amount: 6000, interest_rate: 0.12, status: "matched" },
-  ],
-  netBalance: 48250,
+  resilienceScore: { score: 68, buffer_days: 12 },
+  creditOffers: [],
+  netBalance: 6850,
 });
 
-const formatCurrency = (value, maximumFractionDigits = 0) =>
+const money = (value) =>
   new Intl.NumberFormat("en-IN", {
     style: "currency",
     currency: "INR",
-    maximumFractionDigits,
+    maximumFractionDigits: 0,
   }).format(Number(value) || 0);
 
-const getScore = (dashboard) =>
-  dashboard?.resilienceScore?.score ??
-  dashboard?.resilienceScore?.resilience_score ??
-  dashboard?.resilienceScore?.value ??
-  78;
-
-const getBufferDays = (dashboard) =>
-  dashboard?.resilienceScore?.buffer_days ??
-  dashboard?.resilienceScore?.bufferDays ??
-  18;
-
-const getUserName = (user) => user?.full_name || user?.fullName || "there";
-
 const getToken = () =>
-  typeof window !== "undefined"
-    ? window.localStorage.getItem("resilientbank_access_token") || ""
-    : "";
+  window.localStorage.getItem("resilientbank_access_token") || "";
 
-function apiFetch(path, options = {}) {
+async function apiFetch(path, options = {}) {
   const headers = new Headers(options.headers || {});
   const token = getToken();
   if (token) headers.set("Authorization", `Bearer ${token}`);
-  if (options.body && !headers.has("Content-Type")) {
-    headers.set("Content-Type", "application/json");
-  }
+  if (options.body) headers.set("Content-Type", "application/json");
   return fetch(path, { ...options, headers });
 }
 
-function Pill({ children, tone = "green", className = "" }) {
+function cx(...classes) {
+  return classes.filter(Boolean).join(" ");
+}
+
+function Badge({ children, tone = "green" }) {
   const tones = {
-    green: "bg-[#e4f2e3] text-[#246b4c]",
-    orange: "bg-[#fff0e7] text-[#a94e2d]",
-    blue: "bg-[#e9f0ff] text-[#3158a4]",
-    slate: "bg-[#eef1ed] text-[#5e6b64]",
+    green: "bg-[#E7F3ED] text-[#25614E]",
+    amber: "bg-[#FFF3D9] text-[#8A5A08]",
+    blue: "bg-[#EBF2FF] text-[#315E9A]",
   };
   return (
-    <span
-      className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-bold tracking-[0.03em] ${tones[tone]} ${className}`}
-    >
+    <span className={cx("inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-bold", tones[tone])}>
       {children}
     </span>
   );
 }
 
-function IconButton({ label, onClick, children, active = false }) {
+function Card({ children, className = "" }) {
   return (
-    <button
-      aria-label={label}
-      title={label}
-      onClick={onClick}
-      className={`focus-ring flex h-10 w-10 items-center justify-center rounded-xl border transition ${
-        active
-          ? "border-[#bddac0] bg-[#e5f1e3] text-[#1c684d]"
-          : "border-[#e3e8df] bg-white/80 text-[#496158] hover:border-[#b7ceb9] hover:bg-white"
-      }`}
-    >
+    <section className={cx("rounded-[24px] border border-[#E7EBE9] bg-white p-5 shadow-[0_8px_30px_rgba(15,65,53,0.06)] sm:p-6", className)}>
       {children}
-    </button>
+    </section>
   );
 }
 
-function SectionHeading({ eyebrow, title, action, onAction }) {
+function SectionTitle({ label, title, action, onAction }) {
   return (
     <div className="mb-4 flex items-end justify-between gap-3">
       <div>
-        {eyebrow && (
-          <div className="mb-1 text-[10px] font-bold uppercase tracking-[0.18em] text-[#778a80]">
-            {eyebrow}
-          </div>
-        )}
-        <h2 className="font-display text-xl font-semibold tracking-[-0.035em] text-[#17382e]">
-          {title}
-        </h2>
+        {label && <p className="mb-1 text-[10px] font-bold uppercase tracking-[0.17em] text-[#71837E]">{label}</p>}
+        <h2 className="text-xl font-bold tracking-[-0.035em] text-[#202826]">{title}</h2>
       </div>
       {action && (
-        <button
-          onClick={onAction}
-          className="focus-ring inline-flex items-center gap-1 text-xs font-bold text-[#27734f] hover:text-[#174a36]"
-        >
+        <button onClick={onAction} className="focus-ring shrink-0 text-xs font-bold text-[#0F684F]">
           {action}
-          <ChevronRight size={14} />
         </button>
       )}
     </div>
   );
 }
 
-function ProgressRing({ value, size = 134 }) {
+function PageHeading({ eyebrow, title, copy }) {
+  return (
+    <div>
+      <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-[#5F7B71]">{eyebrow}</p>
+      <h1 className="mt-2 text-3xl font-bold tracking-[-0.055em] text-[#17231F] sm:text-4xl">{title}</h1>
+      <p className="mt-2 max-w-xl text-sm leading-6 text-[#66736F]">{copy}</p>
+    </div>
+  );
+}
+
+function CashFlowChart({ large = false }) {
+  return (
+    <div className={large ? "h-56" : "h-32"}>
+      <svg viewBox="0 0 500 160" preserveAspectRatio="none" className="h-full w-full" role="img" aria-label="30 day cash flow forecast">
+        <defs>
+          <linearGradient id="cashFill" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="#2C8068" stopOpacity=".28" />
+            <stop offset="100%" stopColor="#2C8068" stopOpacity=".02" />
+          </linearGradient>
+        </defs>
+        <line x1="0" y1="122" x2="500" y2="122" stroke="#D9A441" strokeDasharray="5 5" />
+        <path d="M0 112 C45 105 62 78 105 87 S167 114 210 92 S273 52 325 69 S390 97 432 58 S480 37 500 43 L500 160 L0 160Z" fill="url(#cashFill)" />
+        <path d="M0 112 C45 105 62 78 105 87 S167 114 210 92 S273 52 325 69 S390 97 432 58 S480 37 500 43" fill="none" stroke="#1F7159" strokeWidth="4" strokeLinecap="round" />
+        <circle cx="210" cy="92" r="6" fill="#D99A2B" stroke="white" strokeWidth="4" />
+      </svg>
+    </div>
+  );
+}
+
+function ScoreRing({ score = 68, size = 142 }) {
   return (
     <div
-      className="relative flex shrink-0 items-center justify-center rounded-full"
+      className="relative grid shrink-0 place-items-center rounded-full"
       style={{
         width: size,
         height: size,
-        background: `conic-gradient(#297957 ${value * 3.6}deg, #dfece0 0deg)`,
+        background: `conic-gradient(#218064 ${score * 3.6}deg, #E2EEE9 0deg)`,
       }}
     >
-      <div
-        className="flex items-center justify-center rounded-full bg-[#fbfcf8]"
-        style={{ width: size - 14, height: size - 14 }}
-      >
+      <div className="grid place-items-center rounded-full bg-white" style={{ width: size - 15, height: size - 15 }}>
         <div className="text-center">
-          <div className="font-display text-4xl font-bold tracking-[-0.08em] text-[#184936]">
-            {value}
-          </div>
-          <div className="text-[10px] font-bold uppercase tracking-[0.15em] text-[#789083]">
-            score
-          </div>
+          <strong className="block text-4xl tracking-[-0.07em] text-[#0F4135]">{score}</strong>
+          <span className="text-[10px] font-bold uppercase tracking-[0.15em] text-[#77857F]">out of 100</span>
         </div>
       </div>
     </div>
   );
 }
 
-function ForecastChart({ compact = false }) {
-  const points = compact
-    ? "0,65 24,60 48,64 72,43 96,47 120,32 144,39 168,22 192,28 216,14"
-    : "0,100 45,92 90,101 135,72 180,78 225,54 270,61 315,37 360,46 405,28 450,34 500,15";
-  return (
-    <div className={compact ? "h-28 w-full" : "h-52 w-full"}>
-      <svg
-        viewBox={compact ? "0 0 216 78" : "0 0 500 115"}
-        preserveAspectRatio="none"
-        className="h-full w-full overflow-visible"
-        aria-label="30 day cash-flow forecast"
-        role="img"
-      >
-        <defs>
-          <linearGradient id="forecast-fill" x1="0" x2="0" y1="0" y2="1">
-            <stop offset="0%" stopColor="#70b68b" stopOpacity=".34" />
-            <stop offset="100%" stopColor="#70b68b" stopOpacity="0" />
-          </linearGradient>
-        </defs>
-        <path
-          d={`M ${points} L ${compact ? "216,78 0,78" : "500,115 0,115"} Z`}
-          fill="url(#forecast-fill)"
-        />
-        <polyline
-          points={points}
-          fill="none"
-          stroke="#277957"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          strokeWidth={compact ? "2.4" : "2.1"}
-        />
-        {!compact && (
-          <>
-            <line x1="0" y1="27" x2="500" y2="27" stroke="#e5ebe3" />
-            <line x1="0" y1="61" x2="500" y2="61" stroke="#e5ebe3" />
-            <line x1="0" y1="95" x2="500" y2="95" stroke="#e5ebe3" />
-          </>
-        )}
-      </svg>
-      {!compact && (
-        <div className="mt-1 flex justify-between text-[10px] font-medium text-[#8a9c91]">
-          <span>Today</span>
-          <span>+7 days</span>
-          <span>+14 days</span>
-          <span>+21 days</span>
-          <span>+30 days</span>
-        </div>
-      )}
-    </div>
-  );
-}
+function HomeTab({ dashboard, user, showToast, setTab, openWhy }) {
+  const balance = dashboard?.netBalance ?? 6850;
+  const score = dashboard?.resilienceScore?.score ?? 68;
+  const bufferDays = dashboard?.resilienceScore?.buffer_days ?? 12;
 
-function LoadingBar() {
-  return <div className="h-1 w-full animate-pulse rounded-full bg-[#d9e9d9]" />;
-}
-
-function EmptyState({ icon: Icon = CloudOff, title, detail }) {
   return (
-    <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-[#ccd9ce] bg-[#fafcf8] px-6 py-10 text-center">
-      <div className="mb-3 rounded-2xl bg-[#e8f1e5] p-3 text-[#3c7557]">
-        <Icon size={21} />
+    <div className="space-y-5">
+      <div>
+        <p className="text-xs font-medium text-[#71807A]">Friday, 4 September</p>
+        <h1 className="mt-1 text-3xl font-bold tracking-[-0.055em] text-[#17231F]">
+          Hi, {user.full_name.split(" ")[0]}. Here’s your money today.
+        </h1>
       </div>
-      <div className="font-display text-sm font-semibold text-[#2a4a3c]">{title}</div>
-      <div className="mt-1 max-w-xs text-xs leading-5 text-[#71827a]">{detail}</div>
+
+      <section className="overflow-hidden rounded-[28px] bg-[#0F4135] p-5 text-white shadow-[0_16px_40px_rgba(15,65,53,0.2)] sm:p-7">
+        <div className="flex items-start justify-between">
+          <div>
+            <p className="flex items-center gap-2 text-xs font-bold text-[#B9D7CC]">
+              <WalletCards size={15} /> How much do I have?
+            </p>
+            <div className="mt-4 text-5xl font-bold tracking-[-0.075em]">{money(balance)}</div>
+            <p className="mt-2 text-xs text-[#A8C9BE]">Available across your connected accounts</p>
+          </div>
+          <span className="rounded-2xl bg-white/10 p-3 text-[#C9E4DA]"><ShieldCheck size={22} /></span>
+        </div>
+        <div className="mt-7 grid grid-cols-2 gap-4 border-t border-white/15 pt-5">
+          <div>
+            <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#9EC2B6]">Safe to spend</p>
+            <strong className="mt-1 block text-2xl">{money(2300)}</strong>
+            <p className="mt-1 text-[11px] text-[#A8C9BE]">Bills are protected</p>
+          </div>
+          <div className="border-l border-white/15 pl-4">
+            <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#9EC2B6]">Next income</p>
+            <strong className="mt-1 block text-2xl">{money(1850)}</strong>
+            <p className="mt-1 text-[11px] text-[#A8C9BE]">Expected tomorrow</p>
+          </div>
+        </div>
+      </section>
+
+      <div className="grid gap-5 lg:grid-cols-[1.1fr_.9fr]">
+        <Card>
+          <SectionTitle label="Bills and earnings" title="What’s coming up?" />
+          <div className="grid gap-2 sm:grid-cols-3">
+            {[
+              ["Electricity", "₹850", "in 3 days", Zap, "amber"],
+              ["Rent", "₹3,200", "in 5 days", CalendarDays, "amber"],
+              ["Expected income", "₹8,500", "over 14 days", TrendingUp, "green"],
+            ].map(([name, amount, when, Icon, tone]) => (
+              <div key={name} className={cx("rounded-2xl p-3.5", tone === "amber" ? "bg-[#FFF8E8]" : "bg-[#ECF6F1]")}>
+                <Icon size={16} className={tone === "amber" ? "text-[#A66B0B]" : "text-[#247359]"} />
+                <p className="mt-3 text-xs font-bold text-[#45514D]">{name}</p>
+                <strong className="mt-1 block text-lg text-[#202826]">{amount}</strong>
+                <span className="text-[11px] text-[#77827E]">{when}</span>
+              </div>
+            ))}
+          </div>
+          <div className="mt-5 rounded-2xl bg-[#F6F8F7] p-3">
+            <div className="mb-2 flex items-center justify-between text-[11px] font-bold text-[#64736D]">
+              <span>30-day cash flow</span>
+              <span className="text-[#257059]">Stays above your safety line</span>
+            </div>
+            <CashFlowChart />
+          </div>
+        </Card>
+
+        <Card className="border-[#F1DEB7] bg-[#FFFDF8]">
+          <Badge tone="amber"><Zap size={12} /> Today’s suggestion</Badge>
+          <h2 className="mt-4 text-2xl font-bold tracking-[-0.04em] text-[#302B22]">Your earnings were higher this week.</h2>
+          <p className="mt-2 text-sm leading-6 text-[#6E675A]">You can safely save <strong className="text-[#17664E]">₹300 today</strong> and still keep your bill money covered.</p>
+          <button onClick={openWhy} className="focus-ring mt-3 text-xs font-bold text-[#8B5C11] underline decoration-[#D8B46F] underline-offset-4">Why ₹300?</button>
+          <div className="mt-5 grid grid-cols-[1.35fr_1fr_.75fr] gap-2">
+            <button onClick={() => showToast("₹300 added to your saving plan.")} className="focus-ring rounded-xl bg-[#0F4135] px-3 py-3 text-xs font-bold text-white">Save ₹300</button>
+            <button onClick={() => setTab("save")} className="focus-ring rounded-xl border border-[#D8DED9] bg-white px-3 py-3 text-xs font-bold text-[#40514B]">Adjust</button>
+            <button onClick={() => showToast("Skipped for today. No money moved.")} className="focus-ring rounded-xl px-2 py-3 text-xs font-bold text-[#75817C]">Skip</button>
+          </div>
+        </Card>
+      </div>
+
+      <button onClick={() => setTab("resilience")} className="focus-ring flex w-full items-center gap-4 rounded-[24px] border border-[#DDE9E4] bg-[#EDF7F2] p-4 text-left sm:p-5">
+        <ScoreRing score={score} size={92} />
+        <span className="min-w-0 flex-1">
+          <span className="text-[10px] font-bold uppercase tracking-[0.16em] text-[#5B796E]">Your resilience</span>
+          <strong className="mt-1 block text-xl text-[#173E32]">You have {bufferDays} days of bills covered.</strong>
+          <span className="mt-1 block text-xs leading-5 text-[#61766E]">Your score is {score}/100. You’re building a useful safety cushion.</span>
+        </span>
+        <ArrowRight size={20} className="shrink-0 text-[#2C705A]" />
+      </button>
     </div>
   );
 }
 
-function StepperBanner({ consent, setConsent }) {
-  const steps = ["Sign up / Login", "Connect accounts", "Data consent", "Financial setup"];
+function ResilienceTab({ dashboard, openExplanation }) {
+  const score = dashboard?.resilienceScore?.score ?? 68;
+  const days = dashboard?.resilienceScore?.buffer_days ?? 12;
+  const factors = [
+    ["Income steadiness", 72, "Your earnings arrive most weeks.", ArrowUpRight],
+    ["Savings balance", 64, "Your emergency fund is growing.", PiggyBank],
+    ["Cash ups and downs", 58, "A few low-income days need watching.", RefreshCw],
+  ];
+
   return (
-    <section className="grid-paper animate-float-in rounded-3xl border border-[#cfe1d0] bg-[#eef7eb] p-4 sm:p-5">
-      <div className="flex flex-col justify-between gap-4 lg:flex-row lg:items-center">
-        <div className="max-w-sm">
-          <Pill tone="green">
-            <Sparkles size={12} /> Your setup path
-          </Pill>
-          <h2 className="mt-2 font-display text-lg font-semibold tracking-[-0.04em] text-[#1d513b]">
-            Build your resilience, one clear step at a time.
-          </h2>
-        </div>
-        <div className="flex flex-1 flex-col gap-3 lg:pl-8">
-          <div className="flex items-center">
-            {steps.map((step, index) => (
-              <div key={step} className="flex min-w-0 flex-1 items-center last:flex-none">
-                <div className="flex min-w-0 items-center gap-2">
-                  <span
-                    className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-bold ${
-                      index < 2
-                        ? "bg-[#2a7655] text-white"
-                        : "border border-[#8fc39d] bg-white text-[#2d7755]"
-                    }`}
-                  >
-                    {index < 2 ? <Check size={14} /> : index + 1}
-                  </span>
-                  <span className="hidden truncate text-[11px] font-bold text-[#466b56] sm:block">
-                    {step}
-                  </span>
+    <div className="space-y-5">
+      <PageHeading eyebrow="Resilience" title="How ready am I for a slow week?" copy="One simple score that shows how well your money can handle a surprise." />
+      <div className="grid gap-5 lg:grid-cols-[.85fr_1.15fr]">
+        <Card className="flex flex-col items-center justify-center text-center">
+          <ScoreRing score={score} size={170} />
+          <h2 className="mt-5 text-2xl font-bold text-[#173E32]">{days} days covered</h2>
+          <p className="mt-2 max-w-xs text-sm leading-6 text-[#68766F]">If income stopped today, your current cash could cover about {days} days of essential bills.</p>
+          <Badge tone="green"><TrendingUp size={12} /> Up 4 points this month</Badge>
+        </Card>
+        <Card>
+          <SectionTitle label="Next 30 days" title="Your balance forecast" />
+          <div className="flex items-center gap-2 rounded-xl bg-[#FFF6DF] px-3 py-2 text-xs font-bold text-[#855B12]">
+            <AlertTriangle size={14} /> Sep 13–15 may be a lower-income patch
+          </div>
+          <div className="mt-4"><CashFlowChart large /></div>
+          <div className="mt-1 flex justify-between text-[10px] text-[#84908B]"><span>Today</span><span>10 days</span><span>20 days</span><span>30 days</span></div>
+        </Card>
+      </div>
+      <Card>
+        <SectionTitle label="What affects your score" title="Three things to watch" action="Explain my score" onAction={openExplanation} />
+        <div className="space-y-3">
+          {factors.map(([label, value, copy, Icon]) => (
+            <div key={label} className="rounded-2xl bg-[#F7F9F8] p-4">
+              <div className="flex items-center gap-3">
+                <span className="rounded-xl bg-[#E6F1EC] p-2 text-[#276D56]"><Icon size={16} /></span>
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center justify-between gap-3 text-sm font-bold text-[#34423D]"><span>{label}</span><span>{value}/100</span></div>
+                  <div className="mt-2 h-2 overflow-hidden rounded-full bg-[#DFE8E4]"><div className="h-full rounded-full bg-[#2C8068]" style={{ width: `${value}%` }} /></div>
+                  <p className="mt-2 text-xs text-[#74817C]">{copy}</p>
                 </div>
-                {index < steps.length - 1 && (
-                  <div className="mx-2 h-px flex-1 bg-[#b7d4bb] sm:mx-4" />
-                )}
               </div>
-            ))}
-          </div>
-          <div className="flex flex-wrap gap-2">
-            {["Income", "Expenses", "Savings behavior"].map((item) => (
-              <button
-                key={item}
-                onClick={() => setConsent((current) => ({ ...current, [item]: !current[item] }))}
-                className={`focus-ring inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-[11px] font-bold transition ${
-                  consent[item]
-                    ? "border-[#8fc49b] bg-white text-[#27734f]"
-                    : "border-[#cbdccd] bg-transparent text-[#829287]"
-                }`}
-              >
-                <span
-                  className={`flex h-3.5 w-3.5 items-center justify-center rounded border ${
-                    consent[item] ? "border-[#32845d] bg-[#32845d] text-white" : "border-[#aabcae]"
-                  }`}
-                >
-                  {consent[item] && <Check size={10} strokeWidth={3} />}
-                </span>
-                {item}
-              </button>
-            ))}
-          </div>
-        </div>
-      </div>
-    </section>
-  );
-}
-
-function HomeView({ dashboard, user, source, onTab, onExplain, onRefresh }) {
-  const score = getScore(dashboard);
-  const bufferDays = getBufferDays(dashboard);
-  return (
-    <div className="space-y-5">
-      <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-end">
-        <div>
-          <div className="mb-1 text-xs font-medium text-[#75887d]">Friday, September 04, 2026</div>
-          <h1 className="font-display text-3xl font-semibold tracking-[-0.06em] text-[#153c2d] sm:text-4xl">
-            Good morning, {getUserName(user).split(" ")[0]}.
-          </h1>
-          <p className="mt-1 text-sm text-[#687c71]">
-            Here’s the clearest view of your money today.
-          </p>
-        </div>
-        {source === "demo" && (
-          <button
-            onClick={onRefresh}
-            className="focus-ring inline-flex w-fit items-center gap-2 rounded-xl border border-[#e3d6b9] bg-[#fff9ea] px-3 py-2 text-xs font-bold text-[#916a2f]"
-          >
-            <CloudOff size={14} /> Demo data · Try refresh
-          </button>
-        )}
-      </div>
-
-      <div className="grid gap-4 lg:grid-cols-[1.25fr_0.75fr]">
-        <section className="balance-glow animate-float-in rounded-3xl bg-[#194c39] p-5 text-white sm:p-7">
-          <div className="flex items-start justify-between">
-            <div>
-              <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-[0.14em] text-[#b0d2b5]">
-                <Wallet size={14} /> How much do I have?
-              </div>
-              <div className="mt-5 font-display text-4xl font-semibold tracking-[-0.07em] sm:text-5xl">
-                {formatCurrency(dashboard.netBalance)}
-              </div>
-              <div className="mt-2 flex items-center gap-1.5 text-xs text-[#b6d7bd]">
-                <ArrowUpRight size={14} /> +8.4% from last month
-              </div>
-            </div>
-            <div className="rounded-2xl bg-white/10 p-2.5 text-[#bde4c5]">
-              <Landmark size={21} />
-            </div>
-          </div>
-          <div className="mt-7 grid grid-cols-2 gap-3 border-t border-white/15 pt-4">
-            <div>
-              <div className="text-[10px] font-bold uppercase tracking-[0.13em] text-[#94c0a0]">
-                Safe to spend
-              </div>
-              <div className="mt-1 font-display text-xl font-semibold">{formatCurrency(18200)}</div>
-              <div className="mt-1 text-[11px] text-[#a6cdb0]">through Sep 11</div>
-            </div>
-            <div className="border-l border-white/15 pl-4">
-              <div className="text-[10px] font-bold uppercase tracking-[0.13em] text-[#94c0a0]">
-                Buffer covered
-              </div>
-              <div className="mt-1 font-display text-xl font-semibold">{bufferDays} days</div>
-              <div className="mt-1 text-[11px] text-[#a6cdb0]">Target: 21 days</div>
-            </div>
-          </div>
-        </section>
-
-        <section className="animate-float-in delay-1 rounded-3xl border border-[#e0e7de] bg-white p-5 soft-shadow sm:p-6">
-          <SectionHeading eyebrow="Resilience snapshot" title="Can I handle a wobble?" action="Explain" onAction={onExplain} />
-          <div className="flex items-center gap-5">
-            <ProgressRing value={score} size={122} />
-            <div>
-              <Pill tone="green">
-                <ShieldCheck size={12} /> Steady footing
-              </Pill>
-              <p className="mt-3 text-sm leading-5 text-[#64786c]">
-                Your buffer is growing. Keep your next two weeks protected.
-              </p>
-            </div>
-          </div>
-          <div className="mt-5 flex items-center justify-between border-t border-[#edf0eb] pt-4 text-xs">
-            <span className="text-[#7c8f83]">Last updated just now</span>
-            <button onClick={() => onTab("resilience")} className="font-bold text-[#297653]">
-              View forecast <ChevronRight className="inline" size={14} />
-            </button>
-          </div>
-        </section>
-      </div>
-
-      <div className="grid gap-4 lg:grid-cols-[1.1fr_0.9fr]">
-        <section className="animate-float-in delay-2 rounded-3xl border border-[#e0e7de] bg-white p-5 soft-shadow sm:p-6">
-          <SectionHeading eyebrow="Cash-flow preview" title="What’s coming up?" action="Full forecast" onAction={() => onTab("resilience")} />
-          <div className="mb-4 grid grid-cols-2 gap-3">
-            <div className="rounded-2xl bg-[#fff7e9] p-3">
-              <div className="flex items-center gap-1.5 text-[11px] font-bold text-[#9b6d2b]">
-                <ArrowDownRight size={14} /> Essentials
-              </div>
-              <div className="mt-2 font-display text-xl font-semibold text-[#503b1c]">{formatCurrency(6900)}</div>
-              <div className="mt-1 text-[11px] text-[#9f8b68]">next 7 days</div>
-            </div>
-            <div className="rounded-2xl bg-[#edf7ef] p-3">
-              <div className="flex items-center gap-1.5 text-[11px] font-bold text-[#32704d]">
-                <ArrowUpRight size={14} /> Expected income
-              </div>
-              <div className="mt-2 font-display text-xl font-semibold text-[#204e38]">{formatCurrency(12400)}</div>
-              <div className="mt-1 text-[11px] text-[#71927c]">next 7 days</div>
-            </div>
-          </div>
-          <ForecastChart compact />
-          <div className="mt-2 flex items-center gap-2 text-xs text-[#6d8175]">
-            <span className="h-2 w-2 rounded-full bg-[#297957]" /> Your projected balance stays above your safety line.
-          </div>
-        </section>
-
-        <section className="animate-float-in delay-3 rounded-3xl border border-[#f2d7c7] bg-[#fff8f2] p-5 soft-shadow sm:p-6">
-          <div className="flex items-start justify-between">
-            <div>
-              <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.17em] text-[#b66a48]">
-                <Zap size={14} /> What should I do today?
-              </div>
-              <h2 className="mt-2 font-display text-xl font-semibold tracking-[-0.04em] text-[#5e3424]">
-                Give tomorrow a little more room.
-              </h2>
-            </div>
-            <div className="rounded-xl bg-[#ffe6d8] p-2 text-[#b45d39]">
-              <PiggyBank size={19} />
-            </div>
-          </div>
-          <p className="mt-3 text-sm leading-5 text-[#876657]">
-            Based on your rhythm this week, putting away a small amount now keeps your essentials covered later.
-          </p>
-          <div className="mt-5 flex items-end justify-between rounded-2xl bg-white/75 p-4">
-            <div>
-              <div className="text-[10px] font-bold uppercase tracking-[0.15em] text-[#a8806d]">Recommended today</div>
-              <div className="mt-1 font-display text-3xl font-semibold tracking-[-0.06em] text-[#8b472f]">
-                {formatCurrency(120)}
-              </div>
-            </div>
-            <button onClick={() => onTab("save")} className="focus-ring rounded-xl bg-[#c8643f] px-3 py-2 text-xs font-bold text-white shadow-sm hover:bg-[#b45231]">
-              Review plan
-            </button>
-          </div>
-          <div className="mt-4 flex items-center gap-2 text-xs font-medium text-[#9a705c]">
-            <AlertCircle size={14} /> Rent is your next high-priority expense.
-          </div>
-        </section>
-      </div>
-    </div>
-  );
-}
-
-function ResilienceView({ dashboard, onBack }) {
-  const [showModal, setShowModal] = useState(false);
-  const score = getScore(dashboard);
-  const bufferDays = getBufferDays(dashboard);
-  return (
-    <div className="space-y-5">
-      <PageIntro icon={Gauge} eyebrow="Module 2" title="Your resilience, explained." detail="A calmer view of how long your current plan can carry you." onBack={onBack} />
-      <div className="grid gap-4 lg:grid-cols-[0.8fr_1.2fr]">
-        <section className="rounded-3xl bg-[#194c39] p-6 text-white soft-shadow sm:p-8">
-          <div className="text-xs font-bold uppercase tracking-[0.15em] text-[#abd1b1]">Resilience score</div>
-          <div className="mt-5 flex items-center justify-between gap-4">
-            <ProgressRing value={score} size={160} />
-            <div className="text-right">
-              <Pill tone="green" className="bg-white/10 text-[#c8e7ca]">
-                <TrendingUp size={12} /> +6 this month
-              </Pill>
-              <div className="mt-5 font-display text-3xl font-semibold">{bufferDays} days</div>
-              <div className="text-xs text-[#a9cdb1]">of essentials covered</div>
-            </div>
-          </div>
-          <button onClick={() => setShowModal(true)} className="mt-7 flex w-full items-center justify-between rounded-2xl border border-white/15 bg-white/10 px-4 py-3 text-left text-xs font-bold text-[#d1e7d3] hover:bg-white/15">
-            <span className="flex items-center gap-2"><CircleHelp size={15} /> Explain my score</span>
-            <ChevronRight size={15} />
-          </button>
-        </section>
-        <section className="rounded-3xl border border-[#e0e7de] bg-white p-5 soft-shadow sm:p-7">
-          <SectionHeading eyebrow="Cash-flow outlook" title="30-day forecast" />
-          <div className="mb-5 flex items-end justify-between">
-            <div>
-              <div className="font-display text-3xl font-semibold tracking-[-0.06em] text-[#1c4e38]">{formatCurrency(48250)}</div>
-              <div className="mt-1 text-xs text-[#788b80]">projected ending balance</div>
-            </div>
-            <Pill tone="green"><ShieldCheck size={12} /> Above safety line</Pill>
-          </div>
-          <ForecastChart />
-          <div className="mt-4 grid grid-cols-3 gap-2 text-center text-[11px]">
-            <div className="rounded-xl bg-[#f4f8f2] p-2"><div className="font-bold text-[#297957]">₹12.4k</div><div className="mt-1 text-[#819187]">income</div></div>
-            <div className="rounded-xl bg-[#fff8ee] p-2"><div className="font-bold text-[#a8732a]">₹6.9k</div><div className="mt-1 text-[#819187]">essentials</div></div>
-            <div className="rounded-xl bg-[#f4f5fb] p-2"><div className="font-bold text-[#586a9e]">₹120</div><div className="mt-1 text-[#819187]">safe-to-save</div></div>
-          </div>
-        </section>
-      </div>
-      <section className="rounded-3xl border border-[#e0e7de] bg-white p-5 soft-shadow sm:p-6">
-        <SectionHeading eyebrow="What moves the number" title="The three factors behind your score" />
-        <div className="grid gap-3 md:grid-cols-3">
-          {[
-            ["Buffer days", "18 days", "How long your essentials are covered.", "bg-[#eaf5e9]", "text-[#28764f]"],
-            ["Income rhythm", "Stable", "Your recent income is arriving predictably.", "bg-[#eef2ff]", "text-[#5168a5]"],
-            ["Cash volatility", "Low", "Your balance has fewer sharp swings.", "bg-[#fff1e9]", "text-[#a35d3c]"],
-          ].map(([title, value, detail, bg, color]) => (
-            <div key={title} className={`rounded-2xl ${bg} p-4`}>
-              <div className={`text-[10px] font-bold uppercase tracking-[0.15em] ${color}`}>{title}</div>
-              <div className={`mt-3 font-display text-xl font-semibold ${color}`}>{value}</div>
-              <p className="mt-2 text-xs leading-5 text-[#708076]">{detail}</p>
             </div>
           ))}
         </div>
-      </section>
-      {showModal && (
-        <Modal title="How your score is built" onClose={() => setShowModal(false)}>
-          <p className="text-sm leading-6 text-[#63766b]">
-            Your score balances the cash you can access, the steadiness of your income, and the amount your balance moves around. It is designed to show direction, not judge a single day.
-          </p>
-          <div className="mt-5 space-y-3">
-            {[
-              ["Buffer days", "50%", "18 days gives you a reliable cushion."],
-              ["Income stability", "30%", "Your recent earning pattern is consistent."],
-              ["Cash volatility", "20%", "Fewer sharp swings help keep plans steady."],
-            ].map(([label, percent, copy]) => (
-              <div key={label} className="rounded-2xl bg-[#f4f8f2] p-3">
-                <div className="flex justify-between text-xs font-bold text-[#2d6047]"><span>{label}</span><span>{percent}</span></div>
-                <div className="mt-2 text-xs text-[#77897f]">{copy}</div>
-              </div>
-            ))}
-          </div>
-        </Modal>
-      )}
+      </Card>
     </div>
   );
 }
 
-function PageIntro({ icon: Icon, eyebrow, title, detail, onBack }) {
-  return (
-    <div className="flex items-start gap-3">
-      {onBack && <button onClick={onBack} className="mt-1 rounded-xl border border-[#e1e8df] bg-white p-2 text-[#567164] hover:bg-[#f1f6ef]"><ChevronRight className="rotate-180" size={16} /></button>}
-      <div>
-        <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.18em] text-[#6c8b79]"><Icon size={14} /> {eyebrow}</div>
-        <h1 className="mt-2 font-display text-3xl font-semibold tracking-[-0.06em] text-[#153c2d]">{title}</h1>
-        <p className="mt-1 text-sm text-[#708178]">{detail}</p>
-      </div>
-    </div>
-  );
-}
-
-function SavingsView({ onBack, showToast }) {
-  const [income, setIncome] = useState(250);
-  const [committed, setCommitted] = useState(100);
-  const [buffer, setBuffer] = useState(0);
-  const [behavior, setBehavior] = useState("Smart Save");
-  const [result, setResult] = useState(120);
-  const [calculating, setCalculating] = useState(false);
-  const [decision, setDecision] = useState("");
+function SaveTab({ showToast }) {
+  const [income, setIncome] = useState(1200);
+  const [expenses, setExpenses] = useState(700);
+  const [buffer, setBuffer] = useState(200);
+  const [safeAmount, setSafeAmount] = useState(300);
+  const [style, setStyle] = useState("Smart Save");
+  const [loading, setLoading] = useState(false);
 
   const calculate = async () => {
-    setCalculating(true);
+    setLoading(true);
+    const adjustedExpenses = expenses + buffer;
     try {
       const response = await apiFetch("/api/savings/calculate", {
         method: "POST",
-        body: JSON.stringify({ dailyIncome: income, dailyExpenses: committed + buffer }),
+        body: JSON.stringify({ dailyIncome: income, dailyExpenses: adjustedExpenses }),
       });
-      if (!response.ok) throw new Error("Calculation unavailable");
+      if (!response.ok) throw new Error();
       const data = await response.json();
-      setResult(data.safeToSave ?? data.dailySafeToSave ?? 0);
+      setSafeAmount(data.safeToSave ?? 0);
     } catch {
-      setResult(Math.max(0, (income - committed - buffer) * 0.8));
-      showToast("Calculated locally while the API is reconnecting.");
+      setSafeAmount(Math.max(0, (income - adjustedExpenses) * 0.8));
+      showToast("We calculated this on your phone while reconnecting.");
     } finally {
-      setCalculating(false);
+      setLoading(false);
     }
   };
 
   return (
     <div className="space-y-5">
-      <PageIntro icon={PiggyBank} eyebrow="Module 3" title="Make saving feel doable." detail="A small, safe move beats a perfect plan you cannot keep." onBack={onBack} />
-      <div className="grid gap-4 lg:grid-cols-[1.1fr_0.9fr]">
-        <section className="rounded-3xl border border-[#e0e7de] bg-white p-5 soft-shadow sm:p-7">
-          <SectionHeading eyebrow="Safe-to-save engine" title="What feels comfortable today?" />
-          <div className="grid gap-4 sm:grid-cols-3">
+      <PageHeading eyebrow="Save" title="Build a cushion without missing a bill." copy="Pick an amount that fits today. If money gets tight, your plan pauses automatically." />
+      <Card className="bg-[#0F4135] text-white">
+        <div className="flex items-end justify-between gap-3">
+          <div><p className="text-xs font-bold text-[#B7D5CB]">Emergency goal</p><strong className="mt-2 block text-3xl tracking-[-0.05em]">₹3,400 <span className="text-base font-medium text-[#A7C7BC]">/ ₹5,000</span></strong></div>
+          <span className="text-sm font-bold text-[#CDE1DA]">68%</span>
+        </div>
+        <div className="mt-4 h-3 overflow-hidden rounded-full bg-white/15"><div className="h-full w-[68%] rounded-full bg-[#70C49D]" /></div>
+        <p className="mt-3 text-xs text-[#A7C7BC]">₹1,600 more gives you a stronger emergency cushion.</p>
+      </Card>
+      <div className="grid gap-5 lg:grid-cols-[1.1fr_.9fr]">
+        <Card>
+          <SectionTitle label="Safe-to-save calculator" title="What can I save today?" />
+          <div className="grid gap-3 sm:grid-cols-3">
             {[
-              ["Daily income", income, setIncome, "Your average"],
-              ["Committed expenses", committed, setCommitted, "Essentials only"],
-              ["Safety buffer", buffer, setBuffer, "Extra breathing room"],
-            ].map(([label, value, setter, helper]) => (
-              <label key={label} className="block">
-                <span className="text-xs font-bold text-[#506b5d]">{label}</span>
+              ["Daily income", income, setIncome],
+              ["Expenses", expenses, setExpenses],
+              ["Safety buffer", buffer, setBuffer],
+            ].map(([label, value, setter]) => (
+              <label key={label} className="text-xs font-bold text-[#52615C]">
+                {label}
                 <div className="relative mt-2">
-                  <span className="pointer-events-none absolute left-3 top-2.5 text-sm text-[#8a9d91]">₹</span>
-                  <input
-                    className="focus-ring w-full [appearance:textfield] rounded-xl border border-[#dce7dc] bg-[#fbfcf9] py-2.5 pl-7 pr-2 text-sm font-bold text-[#294d3b] outline-none [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
-                    type="number"
-                    min="0"
-                    value={value}
-                    onChange={(event) => setter(Number(event.target.value))}
-                  />
+                  <span className="absolute left-3 top-3 text-[#71807A]">₹</span>
+                  <input type="number" min="0" value={value} onChange={(event) => setter(Number(event.target.value))} className="focus-ring w-full [appearance:textfield] rounded-xl border border-[#DDE4E0] bg-[#FAFBFA] py-3 pl-7 pr-3 text-sm font-bold text-[#26332E] outline-none [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none" />
                 </div>
-                <span className="mt-1 block text-[10px] text-[#829188]">{helper}</span>
               </label>
             ))}
           </div>
-          <div className="mt-7 rounded-2xl bg-[#eff7ed] p-4">
-            <div className="flex items-center justify-between gap-3">
-              <div>
-                <div className="text-[10px] font-bold uppercase tracking-[0.15em] text-[#6c9275]">Your recommendation</div>
-                <div className="mt-1 font-display text-4xl font-semibold tracking-[-0.08em] text-[#28704d]">{formatCurrency(result)}</div>
-                <div className="mt-1 text-xs text-[#6e8977]">daily safe-to-save</div>
-              </div>
-              <button onClick={calculate} disabled={calculating} className="focus-ring rounded-xl bg-[#2b7955] px-3 py-2 text-xs font-bold text-white hover:bg-[#226545] disabled:opacity-60">
-                {calculating ? "Calculating..." : "Recalculate"}
-              </button>
+          <div className="mt-5 rounded-2xl bg-[#EAF5EF] p-4">
+            <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-[#5D7B70]">Safe daily saving</p>
+            <div className="mt-1 flex items-end justify-between gap-3">
+              <strong className="text-4xl tracking-[-0.07em] text-[#17634D]">{money(safeAmount)}</strong>
+              <button onClick={calculate} disabled={loading} className="focus-ring rounded-xl bg-[#0F4135] px-4 py-2.5 text-xs font-bold text-white disabled:opacity-50">{loading ? "Checking..." : "Calculate"}</button>
             </div>
-            <div className="mt-4 h-2 overflow-hidden rounded-full bg-[#d6e8d5]">
-              <div className="h-full rounded-full bg-[#56a06f] transition-all" style={{ width: `${Math.min(100, Math.max(8, result / 2))}%` }} />
-            </div>
-            <div className="mt-2 flex justify-between text-[10px] font-medium text-[#7c9684]"><span>Protect essentials first</span><span>Keep building momentum</span></div>
+            <p className="mt-2 text-xs text-[#60776E]">Income − expenses − safety buffer, with extra room left in your account.</p>
           </div>
-        </section>
-        <section className="rounded-3xl border border-[#e0e7de] bg-white p-5 soft-shadow sm:p-7">
-          <SectionHeading eyebrow="Choose your rhythm" title="How do you want to save?" />
+        </Card>
+        <Card>
+          <SectionTitle label="Saving style" title="Choose what feels easiest" />
           <div className="space-y-2">
             {[
-              ["Smart Save", "Adjusts with your income and expenses.", Sparkles],
-              ["% of Income", "Put a consistent slice of every payment away.", TrendingUp],
-              ["Round-up", "Turn everyday spending into tiny wins.", Plus],
-            ].map(([label, detail, Icon]) => (
-              <button key={label} onClick={() => setBehavior(label)} className={`focus-ring flex w-full items-start gap-3 rounded-2xl border p-3 text-left transition ${behavior === label ? "border-[#9ac6a3] bg-[#f0f8ee]" : "border-[#e4eae2] hover:bg-[#fafcf9]"}`}>
-                <span className={`rounded-xl p-2 ${behavior === label ? "bg-[#dcefdc] text-[#28764f]" : "bg-[#f0f3ee] text-[#72857a]"}`}><Icon size={16} /></span>
-                <span className="min-w-0"><span className="block text-sm font-bold text-[#315743]">{label}</span><span className="mt-1 block text-xs leading-4 text-[#7b8c82]">{detail}</span></span>
-                {behavior === label && <Check className="ml-auto mt-1 shrink-0 text-[#32845d]" size={16} />}
+              ["Round-up spare change", "Save the small difference after each spend."],
+              ["% of Income", "Save the same share whenever you get paid."],
+              ["Smart Save", "Let your amount adjust when earnings change."],
+            ].map(([name, copy]) => (
+              <button key={name} onClick={() => setStyle(name)} className={cx("focus-ring flex w-full items-start gap-3 rounded-2xl border p-3 text-left", style === name ? "border-[#87B6A6] bg-[#EDF7F2]" : "border-[#E4E9E6]")}>
+                <span className={cx("mt-0.5 grid h-5 w-5 shrink-0 place-items-center rounded-full border", style === name ? "border-[#1F7259] bg-[#1F7259] text-white" : "border-[#B8C3BE]")}>{style === name && <Check size={12} />}</span>
+                <span><strong className="block text-sm text-[#35443E]">{name}</strong><span className="mt-1 block text-xs leading-5 text-[#74817C]">{copy}</span></span>
               </button>
             ))}
           </div>
-          <div className="mt-5 rounded-2xl border border-[#f0e3c9] bg-[#fffaf0] p-3 text-xs leading-5 text-[#8c754d]">
-            <Info className="mr-1 inline" size={14} /> This recommendation never moves money without your say-so.
-          </div>
-          <div className="mt-5 flex gap-2">
-            <button onClick={() => { setDecision("accepted"); showToast("Your saving plan is ready for review."); }} className="focus-ring flex-1 rounded-xl bg-[#2b7955] px-3 py-3 text-xs font-bold text-white hover:bg-[#226545]">Accept plan</button>
-            <button onClick={() => setDecision("adjusted")} className="focus-ring rounded-xl border border-[#d9e4d8] px-3 py-3 text-xs font-bold text-[#397054] hover:bg-[#f4f8f2]">Adjust</button>
-            <button onClick={() => setDecision("skipped")} className="focus-ring rounded-xl border border-transparent px-3 py-3 text-xs font-bold text-[#85948b] hover:bg-[#f5f6f2]">Skip</button>
-          </div>
-          {decision && <div className="mt-3 text-center text-xs font-bold text-[#5e7a69]">{decision === "accepted" ? "Plan accepted — you stay in control." : decision === "adjusted" ? "Adjust the inputs above to make it yours." : "Skipped for today. No judgment."}</div>}
-        </section>
+          <div className="mt-4 flex gap-2 rounded-2xl bg-[#FFF7E6] p-3 text-xs leading-5 text-[#785819]"><ShieldCheck className="mt-0.5 shrink-0" size={16} /> If cash gets low, savings pause automatically to protect your bill money.</div>
+        </Card>
       </div>
     </div>
   );
 }
 
-function CreditView({ onBack, showToast }) {
+function CreditTab({ showToast }) {
+  const [purpose, setPurpose] = useState("Vehicle repair");
   const [amount, setAmount] = useState(3000);
-  const [term, setTerm] = useState(6);
-  const [result, setResult] = useState(null);
-  const runCheck = () => {
-    const monthlyPayment = (amount * 1.12) / term;
-    const debtStress = monthlyPayment / 18000;
-    const approved = debtStress <= 0.4 && amount <= 8000;
-    setResult({ approved, monthlyPayment, debtStress });
-  };
+  const [checked, setChecked] = useState(false);
+  const affordable = amount <= 4000;
+  const saferAmount = Math.min(3500, Math.round(amount * 0.7 / 100) * 100);
+
   return (
     <div className="space-y-5">
-      <PageIntro icon={CreditCard} eyebrow="Module 4" title="Credit with guardrails." detail="Borrowing should add stability, not move the worry somewhere else." onBack={onBack} />
-      <div className="grid gap-4 lg:grid-cols-[0.9fr_1.1fr]">
-        <section className="rounded-3xl border border-[#e0e7de] bg-white p-5 soft-shadow sm:p-7">
-          <SectionHeading eyebrow="Responsible credit" title="How much would help?" />
-          <label className="block text-xs font-bold text-[#506b5d]">Request amount
+      <PageHeading eyebrow="Credit" title="Borrow safely, not hopefully." copy="We check the repayment against your real bill money before showing a plan." />
+      <div className="grid gap-5 lg:grid-cols-[.9fr_1.1fr]">
+        <Card>
+          <SectionTitle label="Start here" title="What do you need help with?" />
+          <div className="flex flex-wrap gap-2">
+            {["Vehicle repair", "Medical", "Bridge to next income"].map((item) => (
+              <button key={item} onClick={() => { setPurpose(item); setChecked(false); }} className={cx("focus-ring rounded-xl border px-3 py-2.5 text-xs font-bold", purpose === item ? "border-[#0F4135] bg-[#0F4135] text-white" : "border-[#DDE4E0] text-[#56645F]")}>{item}</button>
+            ))}
+          </div>
+          <label className="mt-5 block text-xs font-bold text-[#52615C]">
+            Requested amount
             <div className="relative mt-2">
-              <span className="pointer-events-none absolute left-3 top-3 text-sm text-[#8a9d91]">₹</span>
-              <input type="number" min="500" max="25000" value={amount} onChange={(event) => setAmount(Number(event.target.value))} className="focus-ring w-full [appearance:textfield] rounded-xl border border-[#dce7dc] bg-[#fbfcf9] py-3 pl-7 pr-3 text-lg font-bold text-[#294d3b] outline-none [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none" />
+              <span className="absolute left-3 top-3 text-[#71807A]">₹</span>
+              <input type="number" min="500" value={amount} onChange={(event) => { setAmount(Number(event.target.value)); setChecked(false); }} className="focus-ring w-full [appearance:textfield] rounded-xl border border-[#DDE4E0] bg-[#FAFBFA] py-3 pl-7 pr-3 text-lg font-bold text-[#26332E] outline-none [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none" />
             </div>
           </label>
-          <div className="mt-5">
-            <div className="flex justify-between text-xs font-bold text-[#506b5d]"><span>Repayment term</span><span>{term} months</span></div>
-            <input type="range" min="3" max="12" value={term} onChange={(event) => setTerm(Number(event.target.value))} className="mt-4 w-full accent-[#2b7955]" />
-            <div className="mt-1 flex justify-between text-[10px] text-[#83948a]"><span>3 months</span><span>12 months</span></div>
+          <div className="mt-5 rounded-2xl bg-[#F5F7F6] p-4">
+            <div className="flex justify-between text-xs text-[#68766F]"><span>Average income</span><strong>₹18,000</strong></div>
+            <div className="mt-2 flex justify-between text-xs text-[#68766F]"><span>Essential expenses</span><strong>₹12,000</strong></div>
+            <div className="mt-3 border-t border-[#E0E6E2] pt-3 flex justify-between text-sm font-bold text-[#285D4B]"><span>Repayment capacity</span><span>₹6,000</span></div>
           </div>
-          <div className="mt-6 grid grid-cols-2 gap-2">
-            <div className="rounded-2xl bg-[#f2f7ef] p-3"><div className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#76927b]">Affordability ceiling</div><div className="mt-2 font-display text-xl font-semibold text-[#2a6849]">₹8,000</div></div>
-            <div className="rounded-2xl bg-[#fff7eb] p-3"><div className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#9c7c4c]">Stress limit</div><div className="mt-2 font-display text-xl font-semibold text-[#876637]">40%</div></div>
-          </div>
-          <button onClick={runCheck} className="focus-ring mt-6 w-full rounded-xl bg-[#2b7955] py-3 text-xs font-bold text-white hover:bg-[#226545]">Run affordability check</button>
-          <p className="mt-3 text-center text-[11px] text-[#819087]">No credit check is run. This is a planning simulation.</p>
-        </section>
-        <section className="rounded-3xl border border-[#e0e7de] bg-[#f2f7ef] p-5 soft-shadow sm:p-7">
-          {!result ? (
-            <EmptyState icon={ShieldCheck} title="Your matched terms will appear here" detail="We’ll compare the request with your cash-flow capacity before suggesting anything." />
+          <button onClick={() => setChecked(true)} className="focus-ring mt-5 w-full rounded-xl bg-[#0F4135] py-3 text-sm font-bold text-white">Check what is safe</button>
+        </Card>
+        <Card className={checked && !affordable ? "border-[#F0D49E] bg-[#FFFDF8]" : ""}>
+          {!checked ? (
+            <div className="flex min-h-72 flex-col items-center justify-center text-center">
+              <span className="rounded-2xl bg-[#EAF4EF] p-4 text-[#216A53]"><ShieldCheck size={28} /></span>
+              <h2 className="mt-4 text-xl font-bold text-[#2D3935]">Your safe plan will appear here.</h2>
+              <p className="mt-2 max-w-sm text-sm leading-6 text-[#71807A]">We’ll protect your next bills before suggesting any repayment.</p>
+            </div>
+          ) : affordable ? (
+            <div className="animate-float-in">
+              <Badge tone="green"><Check size={12} /> This fits your safety limit</Badge>
+              <h2 className="mt-4 text-3xl font-bold tracking-[-0.055em] text-[#173F33]">{money(amount)} over 6 weeks</h2>
+              <p className="mt-2 text-sm leading-6 text-[#68766F]">For {purpose.toLowerCase()}, this plan keeps your bills covered and stays below your ₹4,000 limit.</p>
+              <div className="mt-5 grid grid-cols-2 gap-3">
+                <div className="rounded-2xl bg-[#EDF6F2] p-4"><span className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#688076]">Weekly payment</span><strong className="mt-2 block text-2xl text-[#1B654E]">{money(amount / 6)}</strong></div>
+                <div className="rounded-2xl bg-[#F5F7F6] p-4"><span className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#71807A]">Bill buffer after</span><strong className="mt-2 block text-2xl text-[#34443E]">10 days</strong></div>
+              </div>
+              <button onClick={() => showToast("Safe borrowing plan saved. No loan was taken.")} className="focus-ring mt-6 rounded-xl bg-[#0F4135] px-5 py-3 text-sm font-bold text-white">Save this plan</button>
+            </div>
           ) : (
             <div className="animate-float-in">
-              <Pill tone={result.approved ? "green" : "orange"}>{result.approved ? <ShieldCheck size={12} /> : <AlertCircle size={12} />} {result.approved ? "Matched terms" : "Pause recommended"}</Pill>
-              <h2 className="mt-4 font-display text-3xl font-semibold tracking-[-0.06em] text-[#1e5038]">{result.approved ? "This could fit your plan." : "This would stretch your plan."}</h2>
-              <p className="mt-3 text-sm leading-6 text-[#6e8075]">{result.approved ? "Your estimated repayment stays below the safety circuit breaker. Keep your essentials protected first." : "The estimated repayment crosses the debt-stress circuit breaker. A smaller amount or more time would be safer."}</p>
-              <div className="mt-6 grid grid-cols-2 gap-3">
-                <div className="rounded-2xl bg-white/75 p-4"><div className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#7d9281]">Est. monthly</div><div className="mt-2 font-display text-2xl font-semibold text-[#2a6949]">{formatCurrency(result.monthlyPayment)}</div></div>
-                <div className="rounded-2xl bg-white/75 p-4"><div className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#7d9281]">Debt stress</div><div className="mt-2 font-display text-2xl font-semibold text-[#2a6949]">{Math.round(result.debtStress * 100)}%</div></div>
-              </div>
-              {result.approved ? <button onClick={() => showToast("Offer saved. Nothing has been borrowed.")} className="mt-6 rounded-xl bg-[#2b7955] px-4 py-3 text-xs font-bold text-white">Save this offer</button> : <button onClick={() => setAmount(Math.round(amount * 0.65))} className="mt-6 rounded-xl border border-[#d8c7aa] bg-white px-4 py-3 text-xs font-bold text-[#8a6835]">Try a smaller amount</button>}
+              <Badge tone="amber"><AlertTriangle size={12} /> Safety limit</Badge>
+              <h2 className="mt-4 text-3xl font-bold tracking-[-0.055em] text-[#5F4311]">This amount is too high right now.</h2>
+              <p className="mt-3 text-sm leading-6 text-[#75654A]">It takes too much of your cash and drops your bill buffer below 7 days. We won’t call that affordable.</p>
+              <div className="mt-5 rounded-2xl bg-[#FFF4D8] p-4"><span className="text-xs font-bold text-[#805A12]">A safer amount</span><strong className="mt-1 block text-3xl text-[#704C0A]">{money(saferAmount)}</strong><p className="mt-1 text-xs text-[#816B42]">This keeps more room for rent, electricity and food.</p></div>
+              <button onClick={() => { setAmount(saferAmount); setChecked(true); }} className="focus-ring mt-6 rounded-xl bg-[#8C620E] px-5 py-3 text-sm font-bold text-white">Use safer amount</button>
             </div>
           )}
-        </section>
+        </Card>
       </div>
     </div>
   );
 }
 
-function GuidanceView({ onBack, embedded = false }) {
-  const prompts = ["How much should I save?", "Can I afford this loan?", "Why did my score change?"];
+function GuidanceTab() {
+  const [mode, setMode] = useState("assistant");
+  const [messages, setMessages] = useState([
+    { from: "bot", text: "Hi Ravi. Ask me about saving, bills or borrowing. I’ll keep the answer simple." },
+  ]);
+  const [weekly, setWeekly] = useState(200);
   const answers = {
-    "How much should I save?": "Start with the amount your plan can repeat. Today, ₹120 keeps your essentials covered and still builds a little momentum.",
-    "Can I afford this loan?": "A loan feels affordable when the repayment stays below 40% of your discretionary cash flow. Try the Credit tab to compare a few amounts.",
-    "Why did my score change?": "Your score moves with your buffer days, income rhythm, and cash volatility. A steadier week can help even before your balance gets bigger.",
+    "Can I save ₹500 today?": "₹500 would make this week a little tight. ₹300 is safer because it keeps your rent and electricity money protected.",
+    "Can I afford this loan?": "A ₹3,000 plan looks manageable over 6 weeks. Anything above ₹4,000 would cut too far into your bill cushion.",
+    "Why is my score 68?": "Your income has been fairly steady and you have 12 days of bills covered. A few lower-income days are keeping the score from rising faster.",
   };
-  const [messages, setMessages] = useState([{ from: "bot", text: "Hi, I’m here to make the numbers feel a little less heavy. What are you thinking about?" }]);
-  const ask = (prompt) => setMessages((current) => [...current, { from: "user", text: prompt }, { from: "bot", text: answers[prompt] }]);
+  const ask = (question) =>
+    setMessages((current) => [...current, { from: "user", text: question }, { from: "bot", text: answers[question] }]);
+  const projectedSavings = 3400 + weekly * 4;
+  const projectedDays = 12 + Math.round(weekly / 100);
+  const projectedScore = Math.min(100, 68 + Math.round(weekly / 80));
+
   return (
     <div className="space-y-5">
-      {!embedded && <PageIntro icon={MessageCircle} eyebrow="Module 6" title="A calm second opinion." detail="Plain-language guidance for the decision in front of you." onBack={onBack} />}
-      <div className="mx-auto max-w-3xl overflow-hidden rounded-3xl border border-[#e0e7de] bg-white soft-shadow">
-        <div className="flex items-center gap-3 border-b border-[#edf0eb] bg-[#f2f8f0] px-5 py-4">
-          <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-[#d9eed9] text-[#2a7650]"><Bot size={20} /></div>
-          <div><div className="text-sm font-bold text-[#2f5b43]">ResilientGuide</div><div className="mt-0.5 flex items-center gap-1 text-[11px] text-[#78917f]"><span className="h-1.5 w-1.5 rounded-full bg-[#63a574]" /> Ready when you are</div></div>
-          <MoreHorizontal className="ml-auto text-[#8aa094]" size={19} />
-        </div>
-        <div className="min-h-[330px] space-y-4 bg-[#fbfcf9] p-5">
-          {messages.map((message, index) => (
-            <div key={`${message.text}-${index}`} className={`flex ${message.from === "user" ? "justify-end" : "justify-start"}`}>
-              <div className={`max-w-[82%] rounded-2xl px-4 py-3 text-sm leading-5 ${message.from === "user" ? "rounded-br-md bg-[#276f4e] text-white" : "rounded-bl-md border border-[#e0eae0] bg-white text-[#60756a]"}`}>{message.text}</div>
-            </div>
-          ))}
-        </div>
-        <div className="border-t border-[#edf0eb] p-4">
-          <div className="mb-3 text-[10px] font-bold uppercase tracking-[0.15em] text-[#8a9b91]">Try asking</div>
-          <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hidden">
-            {prompts.map((prompt) => <button key={prompt} onClick={() => ask(prompt)} className="focus-ring shrink-0 rounded-xl border border-[#dce7dc] bg-[#f9fcf8] px-3 py-2 text-xs font-bold text-[#527260] hover:border-[#9bc0a1] hover:bg-[#eef7ed]">{prompt}</button>)}
+      <PageHeading eyebrow="Guidance" title="A calm second opinion." copy="Ask a simple question or test a plan before you act." />
+      <div className="mx-auto grid max-w-lg grid-cols-2 rounded-2xl border border-[#DDE5E1] bg-white p-1.5 shadow-sm">
+        <button onClick={() => setMode("assistant")} className={cx("focus-ring flex items-center justify-center gap-2 rounded-xl px-3 py-2.5 text-xs font-bold transition-colors", mode === "assistant" ? "bg-[#0F4135] text-white" : "text-[#61716B]")}><Bot size={15} /> AI Assistant</button>
+        <button onClick={() => setMode("simulator")} className={cx("focus-ring flex items-center justify-center gap-2 rounded-xl px-3 py-2.5 text-xs font-bold transition-colors", mode === "simulator" ? "bg-[#0F4135] text-white" : "text-[#61716B]")}><SlidersHorizontal size={15} /> What-If Simulator</button>
+      </div>
+
+      <div className={mode === "assistant" ? "block" : "hidden"}>
+        <Card className="mx-auto max-w-3xl overflow-hidden p-0 sm:p-0">
+          <div className="flex items-center gap-3 border-b border-[#E8ECEA] bg-[#F1F7F4] px-5 py-4">
+            <span className="rounded-xl bg-[#DCEEE6] p-2 text-[#246B54]"><Bot size={19} /></span>
+            <div><strong className="block text-sm text-[#29463C]">Resilient Assistant</strong><span className="text-[11px] text-[#71867D]">Answers based on your current plan</span></div>
           </div>
-        </div>
+          <div className="min-h-80 space-y-3 bg-[#FBFCFB] p-5">
+            {messages.map((message, index) => (
+              <div key={index} className={cx("flex", message.from === "user" ? "justify-end" : "justify-start")}>
+                <p className={cx("max-w-[85%] rounded-2xl px-4 py-3 text-sm leading-6", message.from === "user" ? "rounded-br-md bg-[#0F4135] text-white" : "rounded-bl-md border border-[#E2E9E5] bg-white text-[#53635D]")}>{message.text}</p>
+              </div>
+            ))}
+          </div>
+          <div className="border-t border-[#E8ECEA] p-4">
+            <p className="mb-2 text-[10px] font-bold uppercase tracking-[0.15em] text-[#7B8984]">Tap a question</p>
+            <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hidden">
+              {Object.keys(answers).map((question) => <button key={question} onClick={() => ask(question)} className="focus-ring shrink-0 rounded-xl border border-[#DDE5E1] bg-white px-3 py-2.5 text-xs font-bold text-[#40564D]">{question}</button>)}
+            </div>
+          </div>
+        </Card>
+      </div>
+
+      <div className={mode === "simulator" ? "block" : "hidden"}>
+        <Card className="mx-auto max-w-3xl">
+          <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-start">
+            <div><Badge tone="blue"><RefreshCw size={12} /> This is only a test</Badge><h2 className="mt-3 text-2xl font-bold tracking-[-0.04em] text-[#293631]">What if I save {money(weekly)} each week?</h2><p className="mt-1 text-sm text-[#6E7B76]">Move the slider. No real money moves.</p></div>
+            <span className="rounded-2xl bg-[#EAF5EF] p-3 text-[#246B54]"><SlidersHorizontal size={22} /></span>
+          </div>
+          <div className="mt-7">
+            <div className="flex justify-between text-xs font-bold text-[#4C5D56]"><span>Weekly saving</span><span className="min-w-20 text-right tabular-nums">{money(weekly)}</span></div>
+            <input type="range" min="50" max="500" step="50" value={weekly} onChange={(event) => setWeekly(Number(event.target.value))} className="mt-5 w-full accent-[#0F4135]" />
+            <div className="mt-2 flex justify-between text-[10px] text-[#83908B]"><span>₹50</span><span>₹500</span></div>
+          </div>
+          <div className="mt-7 grid gap-3 sm:grid-cols-3">
+            {[
+              ["Emergency savings", money(projectedSavings), "₹3,400 today"],
+              ["Buffer days", `${projectedDays} days`, "12 days today"],
+              ["Resilience score", `${projectedScore}/100`, "68 today"],
+            ].map(([label, value, before]) => (
+              <div key={label} className="min-h-32 rounded-2xl bg-[#F1F7F4] p-4">
+                <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#667C73]">{label}</p>
+                <strong className="mt-3 block text-2xl tabular-nums text-[#17614C]">{value}</strong>
+                <span className="mt-1 block text-[11px] text-[#7C8984]">{before}</span>
+              </div>
+            ))}
+          </div>
+        </Card>
       </div>
     </div>
   );
 }
 
-function SimulatorView({ onBack, embedded = false }) {
-  const [scenario, setScenario] = useState("save");
-  const [amount, setAmount] = useState(200);
-  const baseBuffer = 18;
-  const projectedBuffer = scenario === "save" ? baseBuffer + amount / 100 : baseBuffer - amount / 100;
-  const projectedScore = Math.round(78 + (projectedBuffer - baseBuffer) * 0.8);
-  return (
-    <section className="rounded-3xl border border-[#e0e7de] bg-white p-5 soft-shadow sm:p-7">
-      <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-start">
-        {!embedded && <PageIntro icon={SlidersHorizontal} eyebrow="Module 5 · What-if simulator" title="Try a different tomorrow." detail="Explore impact without touching your actual money." onBack={onBack} />}
-        {embedded && <div><div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.18em] text-[#6c8b79]"><SlidersHorizontal size={14} /> Module 5 · What-if simulator</div><h2 className="mt-2 font-display text-2xl font-semibold tracking-[-0.05em] text-[#153c2d]">Try a different tomorrow.</h2><p className="mt-1 text-sm text-[#708178]">Explore impact without touching your actual money.</p></div>}
-        <Pill tone="blue"><RotateCcw size={12} /> No real transactions</Pill>
-      </div>
-      <div className="mt-7 flex flex-wrap gap-2">
-        <button onClick={() => { setScenario("save"); setAmount(200); }} className={`rounded-xl px-4 py-2.5 text-xs font-bold transition-colors ${scenario === "save" ? "bg-[#2b7955] text-white" : "border border-[#dbe5db] text-[#5c7769]"}`}>Save ₹200 / week</button>
-        <button onClick={() => { setScenario("drop"); setAmount(20); }} className={`rounded-xl px-4 py-2.5 text-xs font-bold transition-colors ${scenario === "drop" ? "bg-[#c96a46] text-white" : "border border-[#dbe5db] text-[#5c7769]"}`}>Income drops by 20%</button>
-      </div>
-      <div className="mt-7 max-w-xl">
-        <div className="flex justify-between text-xs font-bold text-[#4c6a59]"><span>{scenario === "save" ? "Weekly amount" : "Income drop"}</span><span className="min-w-14 text-right tabular-nums">{scenario === "save" ? formatCurrency(amount) : `${amount}%`}</span></div>
-        <input type="range" min={scenario === "save" ? 50 : 5} max={scenario === "save" ? 500 : 40} value={amount} onChange={(event) => setAmount(Number(event.target.value))} className="mt-4 w-full accent-[#2b7955]" />
-      </div>
-      <div className="mt-8 grid gap-3 sm:grid-cols-3">
-        <div className="rounded-2xl bg-[#f0f7ee] p-4"><div className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#78947f]">Buffer days</div><div className="mt-2 font-display text-3xl font-semibold tabular-nums text-[#2a704d]">{projectedBuffer.toFixed(1)}</div><div className="mt-1 text-xs text-[#7a8c81]">{projectedBuffer > baseBuffer ? "more room" : "less room"}</div></div>
-        <div className="rounded-2xl bg-[#eef2ff] p-4"><div className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#7382a9]">Resilience score</div><div className="mt-2 font-display text-3xl font-semibold tabular-nums text-[#53679e]">{projectedScore}</div><div className="mt-1 text-xs text-[#7a879e]">from 78 today</div></div>
-        <div className="rounded-2xl bg-[#fff8ee] p-4"><div className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#9b8152]">Plan signal</div><div className="mt-2 font-display text-xl font-semibold text-[#8b6935]">{projectedBuffer > baseBuffer ? "Positive" : "Watch closely"}</div><div className="mt-1 text-xs text-[#857c6d]">no money moved</div></div>
-      </div>
-    </section>
-  );
-}
-
-function GuidanceHub({ onBack }) {
-  const [view, setView] = useState("advisor");
-
-  return (
-    <div className="space-y-5">
-      <PageIntro icon={MessageCircle} eyebrow="Modules 5 & 6" title="Explore with a calm second opinion." detail="Ask for guidance or model a different tomorrow without changing your real plan." onBack={onBack} />
-      <div className="mx-auto grid w-full max-w-xl grid-cols-2 rounded-2xl border border-[#dce7dc] bg-white p-1.5 soft-shadow">
-        <button onClick={() => setView("advisor")} className={`focus-ring flex items-center justify-center gap-2 rounded-xl px-3 py-2.5 text-xs font-bold transition-colors ${view === "advisor" ? "bg-[#246f4e] text-white shadow-sm" : "text-[#698074] hover:bg-[#f1f6ef]"}`}><Bot size={15} /> AI Advisor</button>
-        <button onClick={() => setView("simulator")} className={`focus-ring flex items-center justify-center gap-2 rounded-xl px-3 py-2.5 text-xs font-bold transition-colors ${view === "simulator" ? "bg-[#246f4e] text-white shadow-sm" : "text-[#698074] hover:bg-[#f1f6ef]"}`}><SlidersHorizontal size={15} /> Scenario Simulator</button>
-      </div>
-      <div className={view === "advisor" ? "block" : "hidden"}><GuidanceView embedded /></div>
-      <div className={view === "simulator" ? "block" : "hidden"}><SimulatorView embedded /></div>
-    </div>
-  );
-}
-
-function Drawer({ title, icon: Icon, onClose, children }) {
+function Sheet({ title, icon: Icon, onClose, children }) {
   return (
     <div className="fixed inset-0 z-40 flex justify-end">
-      <button aria-label="Close drawer" onClick={onClose} className="fixed inset-0 z-40 bg-black/40 backdrop-blur-sm" />
-      <aside className="relative z-50 h-full w-full max-w-md overflow-y-auto bg-[#fbfcf8] p-5 shadow-2xl sm:p-7">
+      <button aria-label="Close" onClick={onClose} className="fixed inset-0 z-40 bg-black/40 backdrop-blur-sm" />
+      <aside className="relative z-50 h-full w-full max-w-md overflow-y-auto bg-[#F8F9FA] p-5 shadow-2xl sm:p-7">
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3"><div className="rounded-xl bg-[#e4f1e2] p-2 text-[#2c7551]"><Icon size={18} /></div><h2 className="font-display text-xl font-semibold tracking-[-0.04em] text-[#1b4936]">{title}</h2></div>
-          <IconButton label="Close" onClick={onClose}><X size={18} /></IconButton>
+          <div className="flex items-center gap-3"><span className="rounded-xl bg-[#E4F0EB] p-2 text-[#21664F]"><Icon size={18} /></span><h2 className="text-xl font-bold text-[#25312D]">{title}</h2></div>
+          <button aria-label="Close sheet" onClick={onClose} className="focus-ring rounded-xl border border-[#DFE5E2] bg-white p-2 text-[#5C6A65]"><X size={18} /></button>
         </div>
-        <div className="mt-7">{children}</div>
+        <div className="mt-6">{children}</div>
       </aside>
     </div>
   );
 }
 
-function DataControlDrawer({ onClose, showToast }) {
-  const [connections, setConnections] = useState([
-    { name: "Primary bank account", detail: "Connected · synced 4 min ago", active: true, icon: Landmark },
-    { name: "Savings account", detail: "Connected · synced yesterday", active: true, icon: PiggyBank },
-  ]);
-  const revoke = (index) => {
-    setConnections((current) => current.map((item, itemIndex) => itemIndex === index ? { ...item, active: false, detail: "Access revoked" } : item));
-    showToast("Access revoked. Your data stays yours.");
-  };
+function ProfileSheet({ users, selectedId, selectUser, close }) {
   return (
-    <Drawer title="Data control" icon={Database} onClose={onClose}>
-      <div className="rounded-2xl bg-[#eef7ec] p-4 text-sm leading-5 text-[#587566]"><LockKeyhole className="mr-2 inline text-[#2f7954]" size={16} /> You decide what ResilientBank can see and for how long.</div>
-      <div className="mt-6 text-[10px] font-bold uppercase tracking-[0.15em] text-[#82948a]">Connected accounts</div>
-      <div className="mt-3 space-y-2">
-        {connections.map((connection, index) => {
-          const ConnectionIcon = connection.icon;
-          return <div key={connection.name} className="rounded-2xl border border-[#e1e9df] bg-white p-4"><div className="flex items-center gap-3"><div className="rounded-xl bg-[#f0f5ef] p-2 text-[#547363]"><ConnectionIcon size={17} /></div><div className="min-w-0 flex-1"><div className="text-sm font-bold text-[#355746]">{connection.name}</div><div className={`mt-1 text-[11px] ${connection.active ? "text-[#769181]" : "text-[#b46a4e]"}`}>{connection.detail}</div></div><span className={`h-2 w-2 rounded-full ${connection.active ? "bg-[#65a674]" : "bg-[#d47758]"}`} /></div>{connection.active && <button onClick={() => revoke(index)} className="mt-4 text-xs font-bold text-[#a05a40] hover:text-[#7d3f2a]">Revoke access</button>}</div>;
-        })}
+    <Sheet title="Choose a profile" icon={ShieldCheck} onClose={close}>
+      <p className="mb-4 text-sm leading-6 text-[#66736F]">Switch between the 30 demo profiles to see how different income patterns affect the plan.</p>
+      <div className="space-y-2">
+        {users.map((user) => (
+          <button key={user.id} onClick={() => selectUser(user.id)} className={cx("focus-ring flex w-full items-center gap-3 rounded-2xl border p-3 text-left", selectedId === user.id ? "border-[#7DAE9E] bg-[#EAF5EF]" : "border-[#E2E7E4] bg-white")}>
+            <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-[#0F4135] text-sm font-bold text-white">{user.full_name.split(" ").map((part) => part[0]).join("").slice(0, 2)}</span>
+            <span className="min-w-0 flex-1"><strong className="block truncate text-sm text-[#34423D]">{user.full_name}</strong><span className="mt-0.5 block truncate text-xs text-[#74817C]">{user.role || "Gig Worker"}</span></span>
+            {selectedId === user.id && <Check size={17} className="text-[#17664E]" />}
+          </button>
+        ))}
       </div>
-      <div className="mt-7 border-t border-[#e3eae1] pt-6">
-        <div className="text-[10px] font-bold uppercase tracking-[0.15em] text-[#82948a]">Your data</div>
-        <button onClick={() => showToast("Data deletion request started. We’ll keep you informed.")} className="mt-3 flex w-full items-center gap-3 rounded-2xl border border-[#f0d7ce] bg-[#fff8f5] p-4 text-left hover:bg-[#fff2ec]"><Trash2 className="text-[#b45f43]" size={18} /><span><span className="block text-sm font-bold text-[#8d4d38]">Delete my data</span><span className="mt-1 block text-xs text-[#a47b6b]">Request permanent deletion from your connected data.</span></span></button>
-      </div>
-    </Drawer>
+    </Sheet>
   );
 }
 
-function NotificationDrawer({ onClose }) {
+function DataSheet({ close, showToast }) {
+  const [accounts, setAccounts] = useState([
+    { name: "Primary bank account", detail: "Updated 5 minutes ago", shared: true },
+    { name: "Savings account", detail: "Updated yesterday", shared: true },
+  ]);
+  return (
+    <Sheet title="Data control" icon={LockKeyhole} onClose={close}>
+      <div className="rounded-2xl bg-[#EAF5EF] p-4 text-sm leading-6 text-[#49665B]"><LockKeyhole className="mr-1 inline text-[#17664E]" size={16} /> You choose what is shared. You can stop access at any time.</div>
+      <div className="mt-5 space-y-3">
+        {accounts.map((account, index) => (
+          <div key={account.name} className="rounded-2xl border border-[#E2E7E4] bg-white p-4">
+            <div className="flex items-center gap-3"><span className="rounded-xl bg-[#F1F5F3] p-2 text-[#466057]"><Database size={17} /></span><div className="flex-1"><strong className="block text-sm text-[#34423D]">{account.name}</strong><span className="text-xs text-[#78857F]">{account.shared ? account.detail : "Sharing stopped"}</span></div><span className={cx("h-2.5 w-2.5 rounded-full", account.shared ? "bg-[#4D9B76]" : "bg-[#C87A5C]")} /></div>
+            {account.shared && <button onClick={() => { setAccounts((current) => current.map((item, itemIndex) => itemIndex === index ? { ...item, shared: false } : item)); showToast("Sharing stopped for this account."); }} className="focus-ring mt-4 text-xs font-bold text-[#A04D32]">Stop sharing</button>}
+          </div>
+        ))}
+      </div>
+      <button onClick={() => showToast("Your data deletion request has started.")} className="focus-ring mt-7 flex w-full items-center gap-3 rounded-2xl border border-[#EECFC3] bg-[#FFF6F2] p-4 text-left"><Trash2 size={18} className="text-[#A84E32]" /><span><strong className="block text-sm text-[#8A432D]">Delete my data</strong><span className="mt-1 block text-xs text-[#966B5D]">Permanently remove your connected information.</span></span></button>
+    </Sheet>
+  );
+}
+
+function NotificationSheet({ close }) {
   const [frequency, setFrequency] = useState("Balanced");
   return (
-    <Drawer title="Smart notifications" icon={BellRing} onClose={onClose}>
-      <div className="rounded-2xl bg-[#fff7eb] p-4"><div className="flex items-center gap-2 text-xs font-bold text-[#98672d]"><AlertCircle size={15} /> 1 needs your attention</div><div className="mt-2 text-sm font-semibold text-[#61451f]">Rent is due in 4 days</div><div className="mt-1 text-xs text-[#997e5b]">Your projected balance has it covered.</div></div>
-      <div className="mt-6"><div className="text-[10px] font-bold uppercase tracking-[0.15em] text-[#82948a]">Urgency</div><div className="mt-3 space-y-2"><div className="flex items-center gap-3 rounded-2xl border border-[#f0dfc6] bg-[#fffaf1] p-3"><span className="h-2.5 w-2.5 rounded-full bg-[#e0a04c]" /><div><div className="text-sm font-bold text-[#76572c]">Rent is due in 4 days</div><div className="mt-1 text-xs text-[#987e5d]">High priority · sent now</div></div></div></div></div>
-      <div className="mt-6"><div className="text-[10px] font-bold uppercase tracking-[0.15em] text-[#82948a]">Good to know</div><div className="mt-3 space-y-2"><div className="flex items-center gap-3 rounded-2xl border border-[#e1e9df] bg-white p-3"><span className="h-2.5 w-2.5 rounded-full bg-[#75a6c2]" /><div><div className="text-sm font-bold text-[#466475]">Your buffer grew this week</div><div className="mt-1 text-xs text-[#7b8d94]">FYI · yesterday</div></div></div></div></div>
-      <div className="mt-7 border-t border-[#e3eae1] pt-6"><div className="text-[10px] font-bold uppercase tracking-[0.15em] text-[#82948a]">Notification frequency</div><div className="mt-3 grid grid-cols-3 gap-2">{["Quiet", "Balanced", "Helpful"].map((option) => <button key={option} onClick={() => setFrequency(option)} className={`rounded-xl border py-2 text-xs font-bold ${frequency === option ? "border-[#9ec5a5] bg-[#edf7ec] text-[#337052]" : "border-[#e0e8df] text-[#7c8d83]"}`}>{option}</button>)}</div><div className="mt-2 text-[11px] text-[#819189]">You’re on {frequency.toLowerCase()} reminders.</div></div>
-    </Drawer>
+    <Sheet title="Notifications" icon={Bell} onClose={close}>
+      <SectionTitle label="Needs attention" title="Urgent" />
+      <div className="space-y-2">
+        <div className="rounded-2xl bg-[#FFF4D8] p-4"><div className="flex items-center gap-2 text-sm font-bold text-[#80580F]"><AlertTriangle size={16} /> Electricity is due in 3 days</div><p className="mt-1 text-xs text-[#8A744B]">₹850 is already included in your safe-to-spend amount.</p></div>
+        <div className="rounded-2xl bg-[#FFF8E9] p-4"><div className="flex items-center gap-2 text-sm font-bold text-[#80580F]"><CalendarDays size={16} /> Rent is due in 5 days</div><p className="mt-1 text-xs text-[#8A744B]">Keep ₹3,200 untouched for this bill.</p></div>
+      </div>
+      <div className="mt-6"><SectionTitle label="No action needed" title="Good to know" /></div>
+      <div className="rounded-2xl bg-[#EAF5EF] p-4"><div className="flex items-center gap-2 text-sm font-bold text-[#245F4B]"><ArrowUpRight size={16} /> You earned more this week</div><p className="mt-1 text-xs text-[#657B72]">That is why today’s safe saving rose to ₹300.</p></div>
+      <div className="mt-7 border-t border-[#E0E6E3] pt-6">
+        <p className="text-xs font-bold text-[#53625C]">How often should we remind you?</p>
+        <div className="mt-3 grid grid-cols-3 gap-2">
+          {["Quiet", "Balanced", "Helpful"].map((item) => <button key={item} onClick={() => setFrequency(item)} className={cx("focus-ring rounded-xl border py-2.5 text-xs font-bold", frequency === item ? "border-[#0F4135] bg-[#0F4135] text-white" : "border-[#DDE4E0] bg-white text-[#61706A]")}>{item}</button>)}
+        </div>
+      </div>
+    </Sheet>
   );
 }
 
-function Modal({ title, onClose, children }) {
-  return <div className="fixed inset-0 z-50 flex items-center justify-center p-4"><button aria-label="Close modal" onClick={onClose} className="absolute inset-0 bg-[#15382c]/25 backdrop-blur-sm" /><div className="relative w-full max-w-md rounded-3xl bg-[#fbfcf8] p-6 shadow-2xl sm:p-7"><div className="flex items-center justify-between"><h2 className="font-display text-xl font-semibold tracking-[-0.04em] text-[#1b4936]">{title}</h2><IconButton label="Close" onClick={onClose}><X size={18} /></IconButton></div><div className="mt-5">{children}</div></div></div>;
-}
-
-function SystemLoop() {
-  const loop = [["Income event", ArrowUpRight], ["Cash-flow analysis", Network], ["Score update", RefreshCw], ["Risk check", ShieldCheck], ["Dashboard refresh", Sparkles]];
-  return <section className="rounded-3xl border border-[#dce8dc] bg-[#edf6eb] p-4 sm:p-5"><div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.16em] text-[#65846d]"><Zap size={13} /> Module 9 · System loop</div><div className="mt-4 flex gap-2 overflow-x-auto pb-1 scrollbar-hidden">{loop.map(([label, Icon], index) => <div key={label} className="flex shrink-0 items-center gap-2">{index > 0 && <ChevronRight size={14} className="text-[#91b19a]" />}<div className="flex items-center gap-2 rounded-xl bg-white/75 px-3 py-2 text-xs font-bold text-[#47735a]"><Icon size={14} /> {label}</div></div>)}</div><div className="mt-3 text-[11px] text-[#789080]">Every new signal helps your plan become more useful, not more complicated.</div></section>;
-}
-
-function App() {
-  const [users, setUsers] = useState(fallbackUsers);
-  const [selectedId, setSelectedId] = useState(fallbackUsers[0].id);
-  const [dashboard, setDashboard] = useState(fallbackDashboard(fallbackUsers[0]));
-  const [activeTab, setActiveTab] = useState("home");
-  const [usersLoading, setUsersLoading] = useState(true);
-  const [dashboardLoading, setDashboardLoading] = useState(false);
-  const [source, setSource] = useState("demo");
-  const [drawer, setDrawer] = useState(null);
-  const [consent, setConsent] = useState({ Income: true, Expenses: true, "Savings behavior": false });
-  const [toast, setToast] = useState("");
-
-  const selectedUser = useMemo(() => users.find((user) => user.id === selectedId) || users[0], [selectedId, users]);
-
-  const loadUsers = async () => {
-    setUsersLoading(true);
-    if (!getToken()) {
-      setUsers(fallbackUsers);
-      setSource("demo");
-      setUsersLoading(false);
-      return;
-    }
-    try {
-      const response = await apiFetch("/api/users");
-      if (!response.ok) throw new Error("Users unavailable");
-      const data = await response.json();
-      if (!Array.isArray(data) || data.length === 0) throw new Error("No users");
-      setUsers(data);
-      setSelectedId((current) => data.some((user) => user.id === current) ? current : data[0].id);
-      setSource("live");
-    } catch {
-      setUsers(fallbackUsers);
-      setSource("demo");
-    } finally {
-      setUsersLoading(false);
-    }
-  };
-
-  const loadDashboard = async (userId) => {
-    setDashboardLoading(true);
-    if (!getToken()) {
-      const user = users.find((item) => item.id === userId) || fallbackUsers[0];
-      setDashboard(fallbackDashboard(user));
-      setSource("demo");
-      setDashboardLoading(false);
-      return;
-    }
-    try {
-      const response = await apiFetch(`/api/dashboard/${encodeURIComponent(userId)}`);
-      if (!response.ok) throw new Error("Dashboard unavailable");
-      setDashboard(await response.json());
-      setSource("live");
-    } catch {
-      const user = users.find((item) => item.id === userId) || fallbackUsers[0];
-      setDashboard(fallbackDashboard(user));
-      setSource("demo");
-    } finally {
-      setDashboardLoading(false);
-    }
-  };
-
-  useEffect(() => { loadUsers(); }, []);
-  useEffect(() => { if (selectedId) loadDashboard(selectedId); }, [selectedId]);
-  useEffect(() => { if (!toast) return undefined; const timer = setTimeout(() => setToast(""), 3000); return () => clearTimeout(timer); }, [toast]);
-
-  const showToast = (message) => setToast(message);
-  const chooseTab = (tab) => setActiveTab(tab);
-
-  const content = {
-    home: <HomeView dashboard={dashboard} user={selectedUser} source={source} onTab={chooseTab} onExplain={() => setActiveTab("resilience")} onRefresh={() => { loadUsers(); loadDashboard(selectedId); }} />,
-    resilience: <ResilienceView dashboard={dashboard} onBack={() => setActiveTab("home")} />,
-    save: <SavingsView onBack={() => setActiveTab("home")} showToast={showToast} />,
-    credit: <CreditView onBack={() => setActiveTab("home")} showToast={showToast} />,
-    guidance: <GuidanceHub onBack={() => setActiveTab("home")} />,
-  }[activeTab];
-
+function WhyModal({ close }) {
   return (
-    <div className="min-h-screen text-[#15231f]">
-      <header className="sticky top-0 z-30 border-b border-[#e4eae1]/80 bg-[#f7f8f3]/90 backdrop-blur-md">
-        <div className="mx-auto flex max-w-7xl items-center justify-between gap-3 px-4 py-3 sm:px-6 lg:px-8">
-          <button onClick={() => setActiveTab("home")} className="focus-ring flex items-center gap-2.5 text-left">
-            <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#1c533d] text-[#c2e3c3]"><ShieldCheck size={19} /></span>
-            <span><span className="block font-display text-sm font-bold tracking-[-0.03em] text-[#194633]">Resilient<span className="text-[#c56a46]">Bank</span></span><span className="hidden text-[9px] font-bold uppercase tracking-[0.15em] text-[#829187] sm:block">Your steadier money life</span></span>
-          </button>
-          <div className="hidden items-center gap-1 rounded-xl border border-[#e2e9df] bg-white/75 p-1 md:flex">
-            {tabs.slice(0, 4).map(({ id, label }) => <button key={id} onClick={() => setActiveTab(id)} className={`rounded-lg px-3 py-1.5 text-xs font-bold ${activeTab === id ? "bg-[#e9f3e7] text-[#2a704e]" : "text-[#7d8e84] hover:text-[#35634d]"}`}>{label}</button>)}
-          </div>
-          <div className="flex items-center gap-2">
-            <IconButton label="Data control" onClick={() => setDrawer("data")} active={drawer === "data"}><Database size={17} /></IconButton>
-            <IconButton label="Smart notifications" onClick={() => setDrawer("notifications")} active={drawer === "notifications"}><Bell size={17} /></IconButton>
-            <button onClick={() => setDrawer("profile")} className="focus-ring hidden h-10 items-center gap-2 rounded-xl border border-[#e0e8df] bg-white/80 px-2.5 transition hover:border-[#bdd0bf] hover:bg-white sm:flex">
-              <span className="flex h-6 w-6 items-center justify-center rounded-lg bg-[#e5f0e3] text-[#367454]"><UserRound size={14} /></span>
-              <span className="max-w-[128px] truncate text-xs font-bold text-[#426353]">{getUserName(selectedUser)}</span>
-              <ChevronDown size={13} className="text-[#83928a]" />
-            </button>
-            <button onClick={() => setDrawer("profile")} className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#e5f0e3] text-[#367454] sm:hidden"><Menu size={18} /></button>
-          </div>
+    <div className="fixed inset-0 z-40 grid place-items-center p-4">
+      <button aria-label="Close explanation" onClick={close} className="fixed inset-0 z-40 bg-black/40 backdrop-blur-sm" />
+      <div className="relative z-50 w-full max-w-md rounded-[26px] bg-white p-6 shadow-2xl">
+        <div className="flex items-center justify-between"><h2 className="text-xl font-bold text-[#293630]">Why ₹300?</h2><button onClick={close} className="focus-ring rounded-xl border border-[#DFE5E2] p-2"><X size={17} /></button></div>
+        <p className="mt-3 text-sm leading-6 text-[#63716C]">We start with today’s income, protect your expenses and keep a safety buffer.</p>
+        <div className="mt-5 space-y-2 rounded-2xl bg-[#F6F8F7] p-4 text-sm">
+          <div className="flex justify-between"><span>Today’s income</span><strong className="text-[#17664E]">₹1,200</strong></div>
+          <div className="flex justify-between"><span>Expenses</span><strong>− ₹700</strong></div>
+          <div className="flex justify-between"><span>Safety buffer</span><strong>− ₹200</strong></div>
+          <div className="flex justify-between border-t border-[#DDE4E0] pt-3 text-base"><strong>Safe to save</strong><strong className="text-[#17664E]">₹300</strong></div>
         </div>
-        <div className="border-t border-[#e6ebe4] px-4 py-2 sm:hidden">
-          <button onClick={() => setDrawer("profile")} className="focus-ring flex w-full items-center gap-2 rounded-lg text-left">
-            <UserRound size={14} className="text-[#6e8878]" />
-            <span className="flex-1 truncate text-xs font-bold text-[#426353]">{getUserName(selectedUser)}</span>
-            {usersLoading ? <span className="w-16"><LoadingBar /></span> : <ChevronRight size={14} className="text-[#83928a]" />}
-          </button>
-        </div>
-      </header>
-
-      <main className="mx-auto max-w-7xl space-y-5 px-4 py-5 pb-28 sm:px-6 sm:py-7 sm:pb-28 md:pb-7 lg:px-8">
-        {activeTab === "home" && <StepperBanner consent={consent} setConsent={setConsent} />}
-        {dashboardLoading && <LoadingBar />}
-        {content}
-        {activeTab === "home" && <SystemLoop />}
-      </main>
-
-      <nav className="fixed bottom-0 left-0 right-0 z-30 border-t border-[#e0e7dd] bg-[#fbfcf8]/95 px-3 py-2 backdrop-blur-lg md:hidden">
-        <div className="mx-auto flex max-w-md justify-around">
-          {tabs.map(({ id, label, icon: Icon }) => <button key={id} onClick={() => setActiveTab(id)} className={`focus-ring flex min-w-[58px] flex-col items-center gap-1 rounded-xl px-2 py-1.5 text-[10px] font-bold ${activeTab === id ? "text-[#28724f]" : "text-[#829189]"}`}><Icon size={18} strokeWidth={activeTab === id ? 2.4 : 1.8} /><span>{label}</span></button>)}
-        </div>
-      </nav>
-
-      {drawer === "data" && <DataControlDrawer onClose={() => setDrawer(null)} showToast={showToast} />}
-      {drawer === "notifications" && <NotificationDrawer onClose={() => setDrawer(null)} />}
-      {drawer === "profile" && <Drawer title="Choose a profile" icon={UserRound} onClose={() => setDrawer(null)}><div className="space-y-2">{users.map((user) => <button key={user.id} onClick={() => { setSelectedId(user.id); setDrawer(null); }} className={`flex w-full items-center gap-3 rounded-2xl border p-3 text-left ${selectedId === user.id ? "border-[#9fc8a5] bg-[#eef7ed]" : "border-[#e2e9e0] bg-white"}`}><span className="flex h-8 w-8 items-center justify-center rounded-xl bg-[#e7f0e4] text-[#347352]"><UserRound size={15} /></span><span className="text-sm font-bold text-[#416353]">{getUserName(user)}</span>{selectedId === user.id && <Check className="ml-auto text-[#2c7953]" size={16} />}</button>)}</div></Drawer>}
-      {toast && <div className="pointer-events-none fixed top-16 left-1/2 z-50 flex -translate-x-1/2 animate-float-in items-center gap-2 rounded-2xl bg-[#1b4e39] px-4 py-3 text-xs font-bold whitespace-nowrap text-white shadow-xl"><Check size={15} className="text-[#bfe4c3]" />{toast}</div>}
+        <p className="mt-4 flex gap-2 text-xs leading-5 text-[#6A7973]"><Info className="mt-0.5 shrink-0" size={14} /> If your income or bills change, this amount changes too.</p>
+      </div>
     </div>
   );
 }
 
-export default App;
+function ScoreExplanation({ close }) {
+  return (
+    <Sheet title="What your score means" icon={Gauge} onClose={close}>
+      <p className="text-sm leading-6 text-[#64736D]">Your score is not a grade. It is a quick way to see how much room your money has when work is slow or a surprise bill arrives.</p>
+      <div className="mt-5 space-y-3">
+        {[
+          ["Income steadiness", "Are earnings arriving regularly?"],
+          ["Savings balance", "How much emergency money is ready?"],
+          ["Cash ups and downs", "How sharply does your balance change?"],
+        ].map(([title, copy]) => <div key={title} className="rounded-2xl bg-white p-4"><strong className="text-sm text-[#34423D]">{title}</strong><p className="mt-1 text-xs leading-5 text-[#74817C]">{copy}</p></div>)}
+      </div>
+    </Sheet>
+  );
+}
+
+function SystemLoop() {
+  const steps = ["Income received", "Cash flow calculated", "Safety check", "App updated"];
+  return (
+    <div className="rounded-2xl border border-[#E1E8E4] bg-[#F1F6F3] p-4">
+      <p className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.16em] text-[#687B73]"><ShieldCheck size={13} /> Quiet checks in the background</p>
+      <div className="mt-3 flex items-center gap-2 overflow-x-auto scrollbar-hidden">
+        {steps.map((step, index) => <div key={step} className="flex shrink-0 items-center gap-2">{index > 0 && <ArrowRight size={13} className="text-[#9AA9A3]" />}<span className="rounded-lg bg-white px-3 py-2 text-[11px] font-bold text-[#52665E]">{step}</span></div>)}
+      </div>
+    </div>
+  );
+}
+
+export default function App() {
+  const [users, setUsers] = useState(demoUsers);
+  const [selectedId, setSelectedId] = useState(demoUsers[0].id);
+  const [dashboard, setDashboard] = useState(demoDashboard(demoUsers[0]));
+  const [tab, setTab] = useState("home");
+  const [sheet, setSheet] = useState(null);
+  const [modal, setModal] = useState(null);
+  const [toast, setToast] = useState("");
+  const [loading, setLoading] = useState(false);
+  const selectedUser = useMemo(() => users.find((user) => user.id === selectedId) || demoUsers[0], [users, selectedId]);
+
+  useEffect(() => {
+    if (!getToken()) return;
+    apiFetch("/api/users")
+      .then((response) => {
+        if (!response.ok) throw new Error();
+        return response.json();
+      })
+      .then((data) => {
+        if (Array.isArray(data) && data.length) {
+          setUsers(data.map((user, index) => ({ ...user, role: user.role || people[index % people.length][1] })));
+          setSelectedId(data[0].id);
+        }
+      })
+      .catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    if (!selectedId) return;
+    setLoading(true);
+    if (!getToken()) {
+      setDashboard(demoDashboard(selectedUser));
+      setLoading(false);
+      return;
+    }
+    apiFetch(`/api/dashboard/${encodeURIComponent(selectedId)}`)
+      .then((response) => {
+        if (!response.ok) throw new Error();
+        return response.json();
+      })
+      .then(setDashboard)
+      .catch(() => setDashboard(demoDashboard(selectedUser)))
+      .finally(() => setLoading(false));
+  }, [selectedId]);
+
+  useEffect(() => {
+    if (!toast) return undefined;
+    const timer = window.setTimeout(() => setToast(""), 3000);
+    return () => window.clearTimeout(timer);
+  }, [toast]);
+
+  const chooseUser = (id) => {
+    setSelectedId(id);
+    setSheet(null);
+    setToast("Profile switched.");
+  };
+
+  const tabContent = {
+    home: <HomeTab dashboard={dashboard} user={selectedUser} showToast={setToast} setTab={setTab} openWhy={() => setModal("why")} />,
+    resilience: <ResilienceTab dashboard={dashboard} openExplanation={() => setSheet("score")} />,
+    save: <SaveTab showToast={setToast} />,
+    credit: <CreditTab showToast={setToast} />,
+    guidance: <GuidanceTab />,
+  }[tab];
+
+  return (
+    <div className="min-h-screen bg-[#F8F9FA] text-[#222A27]">
+      <header className="sticky top-0 z-30 border-b border-[#E4E9E6] bg-[#F8F9FA]/95 backdrop-blur-md">
+        <div className="mx-auto flex max-w-6xl items-center gap-2 px-4 py-3 sm:px-6">
+          <button onClick={() => setTab("home")} className="focus-ring mr-auto flex items-center gap-2 text-left">
+            <span className="relative grid h-10 w-10 place-items-center rounded-xl bg-[#0F4135] text-white"><ShieldCheck size={21} /><Leaf size={10} className="absolute right-1.5 top-1.5 text-[#8DD0AF]" /></span>
+            <span className="hidden sm:block"><strong className="block text-sm tracking-[-0.03em] text-[#0F4135]">ResilientBank</strong><span className="text-[9px] font-bold uppercase tracking-[0.14em] text-[#78857F]">Steady money, one day at a time</span></span>
+          </button>
+          <button aria-label="Data control" onClick={() => setSheet("data")} className="focus-ring grid h-10 w-10 place-items-center rounded-xl border border-[#DFE5E2] bg-white text-[#466057]"><LockKeyhole size={17} /></button>
+          <button aria-label="Notifications" onClick={() => setSheet("notifications")} className="focus-ring relative grid h-10 w-10 place-items-center rounded-xl border border-[#DFE5E2] bg-white text-[#466057]"><Bell size={17} /><span className="absolute right-2 top-2 h-2 w-2 rounded-full border-2 border-white bg-[#D39424]" /></button>
+          <button onClick={() => setSheet("profiles")} className="focus-ring flex min-w-0 items-center gap-2 rounded-xl border border-[#DDE4E0] bg-white px-2.5 py-2 text-left sm:px-3">
+            <span className="grid h-6 w-6 shrink-0 place-items-center rounded-lg bg-[#E6F1EC] text-[10px] font-bold text-[#1F6A52]">{selectedUser.full_name.split(" ").map((part) => part[0]).join("").slice(0, 2)}</span>
+            <span className="hidden min-w-0 sm:block"><strong className="block max-w-36 truncate text-xs text-[#34423D]">{selectedUser.full_name}</strong><span className="block max-w-36 truncate text-[10px] text-[#77847F]">{selectedUser.role || "Gig Worker"}</span></span>
+            <ChevronDown size={13} className="text-[#77847F]" />
+          </button>
+        </div>
+        <button onClick={() => setSheet("profiles")} className="focus-ring flex w-full items-center justify-center gap-1 border-t border-[#E7EBE9] py-2 text-xs font-bold text-[#42564E] sm:hidden">{selectedUser.full_name} <span className="font-medium text-[#7A8782]">• {selectedUser.role || "Gig Worker"}</span><ChevronDown size={13} /></button>
+      </header>
+
+      {loading && <div className="fixed left-0 right-0 top-[65px] z-20 h-0.5 overflow-hidden bg-[#DCE9E4]"><div className="h-full w-1/2 animate-pulse rounded-full bg-[#1F7159]" /></div>}
+
+      <main className="mx-auto max-w-6xl space-y-5 px-4 py-5 pb-32 sm:px-6 sm:py-7 sm:pb-32">
+        {tabContent}
+        <SystemLoop />
+      </main>
+
+      <nav className="fixed inset-x-0 bottom-0 z-30 border-t border-[#DFE5E2] bg-white/95 pb-[max(.5rem,env(safe-area-inset-bottom))] pt-2 backdrop-blur-lg">
+        <div className="mx-auto flex max-w-xl justify-around px-2">
+          {tabs.map(({ id, label, icon: Icon }) => (
+            <button key={id} onClick={() => setTab(id)} className={cx("focus-ring flex min-w-14 flex-col items-center gap-1 rounded-xl px-2 py-1.5 text-[10px] font-bold transition-colors", tab === id ? "bg-[#E9F3EE] text-[#0F5D47]" : "text-[#7A8782]")}>
+              <Icon size={19} strokeWidth={tab === id ? 2.5 : 1.8} />
+              {label}
+            </button>
+          ))}
+        </div>
+      </nav>
+
+      {sheet === "profiles" && <ProfileSheet users={users} selectedId={selectedId} selectUser={chooseUser} close={() => setSheet(null)} />}
+      {sheet === "data" && <DataSheet close={() => setSheet(null)} showToast={setToast} />}
+      {sheet === "notifications" && <NotificationSheet close={() => setSheet(null)} />}
+      {sheet === "score" && <ScoreExplanation close={() => setSheet(null)} />}
+      {modal === "why" && <WhyModal close={() => setModal(null)} />}
+      {toast && <div className="pointer-events-none fixed top-16 left-1/2 z-50 flex max-w-[calc(100%-2rem)] -translate-x-1/2 items-center gap-2 rounded-xl bg-[#0F4135] px-4 py-3 text-xs font-bold whitespace-nowrap text-white shadow-xl"><Check size={15} className="text-[#A9D7C5]" />{toast}</div>}
+    </div>
+  );
+}
