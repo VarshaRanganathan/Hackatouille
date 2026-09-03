@@ -11,4 +11,17 @@ if (!supabaseUrl || !supabaseKey) {
 
 const supabase = createClient(supabaseUrl, supabaseKey);
 
-module.exports = supabase;
+function createAuthenticatedClient(accessToken) {
+  return createClient(supabaseUrl, supabaseKey, {
+    global: {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
+    },
+  });
+}
+
+module.exports = {
+  supabase,
+  createAuthenticatedClient,
+};
