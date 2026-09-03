@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   AlertTriangle,
   ArrowLeft,
@@ -637,17 +637,53 @@ function CreditTab({ dashboard, showToast, openExplain }) {
 function GuidanceTab({ dashboard, openExplain }) {
   const [mode, setMode] = useState("assistant");
   const [weekly, setWeekly] = useState(200);
-  const [messages, setMessages] = useState([{ from: "bot", text: "Ask me about saving, bills, or a slower work week." }]);
+  const [messages, setMessages] = useState([{ sender: "bot", text: "Ask me about your savings, bills, loan limit, or buffer." }]);
+  const [input, setInput] = useState("");
+  const [sending, setSending] = useState(false);
+  const chatEndRef = useRef(null);
   const monthlyAdded = weekly * 4;
   const simulatedSavings = (Number(dashboard.current_savings) || 0) + monthlyAdded;
   const simulatedBuffer = Math.max(0, Math.floor(((Number(dashboard.current_balance) || 0) + monthlyAdded) / Math.max(1, Number(dashboard.daily_burn_rate) || 0)));
   const simulatedScore = resilienceFrom(simulatedBuffer, dashboard.income_stability_score, dashboard.volatility_score);
-  const ask = (text) => setMessages((current) => [...current, { from: "user", text }, { from: "bot", text: `Based on your ${Number(dashboard.buffer_days || 0).toFixed(0)}-day bill cushion, keep the next step small and leave your essential money untouched.` }]);
+
+  useEffect(() => {
+    chatEndRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+  }, [messages, sending]);
+
+  const sendMessage = async (message = input) => {
+    const trimmed = message.trim();
+    if (!trimmed || sending) return;
+    setInput("");
+    setMessages((current) => [...current, { sender: "user", text: trimmed }]);
+    setSending(true);
+    try {
+      const response = await request("/api/guidance/chat", {
+        method: "POST",
+        body: JSON.stringify({
+          userId: dashboard.profile?.id,
+          userMessage: trimmed,
+        }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "We could not prepare guidance.");
+      setMessages((current) => [...current, { sender: "bot", text: data.reply }]);
+    } catch (error) {
+      setMessages((current) => [...current, { sender: "bot", text: `I couldn't check that just now. ${error.message}` }]);
+    } finally {
+      setSending(false);
+    }
+  };
+
+  const handleSubmit = (event) => {
+    event.preventDefault();
+    sendMessage();
+  };
+
   return (
     <div className="space-y-5 pb-28">
       <div><p className="text-[10px] font-bold uppercase tracking-[0.17em] text-[#63776F]">Guidance</p><h1 className="mt-2 text-3xl font-bold tracking-[-0.055em] text-[#18231F]">A calm second opinion.</h1></div>
       <div className="mx-auto grid max-w-lg grid-cols-2 rounded-2xl border border-[#DDE5E1] bg-white p-1.5"><button onClick={() => setMode("assistant")} className={cx("focus-ring flex items-center justify-center gap-2 rounded-xl py-2.5 text-xs font-bold", mode === "assistant" ? "bg-[#0F4135] text-white" : "text-[#687771]")}><Bot size={15} /> Ask a question</button><button onClick={() => setMode("simulator")} className={cx("focus-ring flex items-center justify-center gap-2 rounded-xl py-2.5 text-xs font-bold", mode === "simulator" ? "bg-[#0F4135] text-white" : "text-[#687771]")}><SlidersHorizontal size={15} /> Try a plan</button></div>
-      <div className={mode === "assistant" ? "block" : "hidden"}><Card className="mx-auto max-w-3xl"><div className="min-h-72 space-y-3">{messages.map((message, index) => <div key={index} className={cx("flex", message.from === "user" ? "justify-end" : "justify-start")}><p className={cx("max-w-[85%] rounded-2xl px-4 py-3 text-sm leading-6", message.from === "user" ? "rounded-br-md bg-[#0F4135] text-white" : "rounded-bl-md bg-[#F1F6F3] text-[#53635D]")}>{message.text}</p></div>)}</div><div className="flex gap-2 overflow-x-auto border-t border-[#E5EAE7] pt-4 scrollbar-hidden">{["Can I save today?", "Can I afford a loan?", "What if work is slow?"].map((prompt) => <button key={prompt} onClick={() => ask(prompt)} className="focus-ring shrink-0 rounded-xl border border-[#DDE4E0] px-3 py-2 text-xs font-bold text-[#4C6057]">{prompt}</button>)}</div></Card></div>
+      <div className={mode === "assistant" ? "block" : "hidden"}><Card className="mx-auto max-w-3xl"><div className="flex h-[360px] flex-col"><div aria-live="polite" className="min-h-0 flex-1 space-y-3 overflow-y-auto pr-1">{messages.map((message, index) => <div key={`${message.sender}-${index}`} className={cx("flex", message.sender === "user" ? "justify-end" : "justify-start")}><p className={cx("max-w-[88%] whitespace-pre-line rounded-2xl border px-4 py-3 text-sm leading-6", message.sender === "user" ? "rounded-br-md border-[#0F4135] bg-[#0F4135] text-white" : "rounded-bl-md border-[#E1E7E4] bg-white text-slate-900")}>{message.text}</p></div>)}{sending && <div className="flex justify-start"><p className="rounded-2xl rounded-bl-md border border-[#E1E7E4] bg-white px-4 py-3 text-sm text-[#687771]">Checking your live plan…</p></div>}<div ref={chatEndRef} /></div><div className="mt-4 flex gap-2 overflow-x-auto border-t border-[#E5EAE7] pt-4 scrollbar-hidden">{["Can I save ₹500 today?", "Can I afford a loan?", "Why did my score change?"].map((prompt) => <button type="button" key={prompt} onClick={() => sendMessage(prompt)} disabled={sending} className="focus-ring shrink-0 rounded-xl border border-[#DDE4E0] px-3 py-2 text-xs font-bold text-[#4C6057] disabled:opacity-50">{prompt}</button>)}</div><form onSubmit={handleSubmit} className="sticky bottom-0 mt-3 flex gap-2 bg-white pt-1"><input aria-label="Ask financial guidance" value={input} onChange={(event) => setInput(event.target.value)} placeholder="Ask about your savings, bills, or loan limits..." className="focus-ring min-w-0 flex-1 rounded-2xl border border-[#D9E1DD] px-4 py-3 text-sm font-semibold text-[#293630] outline-none placeholder:font-normal placeholder:text-[#9AA7A1]" /><button type="submit" disabled={!input.trim() || sending} className="focus-ring rounded-2xl bg-[#0F4135] px-5 py-3 text-sm font-bold text-white disabled:cursor-not-allowed disabled:opacity-45">{sending ? "..." : "Send"}</button></form></div></Card><div className="mx-auto mt-3 flex max-w-3xl items-start gap-2 rounded-2xl border border-[#DCE9E2] bg-[#EDF7F2] p-4 text-xs leading-5 text-[#45685A]"><ShieldCheck className="mt-0.5 shrink-0 text-[#17634D]" size={16} /><span>Guidance is based on your real-time cash flow. ResilientBank never executes transactions without your explicit tap.</span></div></div>
       <div className={mode === "simulator" ? "block" : "hidden"}><Card className="mx-auto max-w-3xl"><div className="flex items-center justify-between gap-3"><span className="inline-flex items-center gap-1 rounded-full bg-[#E9F1FF] px-3 py-1 text-xs font-bold text-[#385F94]"><RefreshCw size={12} /> This is only a test</span><WhyButton onClick={() => openExplain({ title: "What-if projection", text: "The simulator adds four weeks of the selected saving amount to your emergency savings, then recalculates full buffer days and the resilience score. It does not move real money.", formula: "Projected savings = current savings + weekly amount × 4. Projected buffer = floor((available balance + added savings) ÷ daily essential cost)." })} /></div><h2 className="mt-4 text-2xl font-bold text-[#28352F]">What if I save {money(weekly)} each week?</h2><input type="range" min="50" max="500" step="50" value={weekly} onChange={(event) => setWeekly(Number(event.target.value))} className="mt-7 w-full accent-[#0F4135]" /><div className="mt-6 grid min-h-28 grid-cols-1 gap-3 sm:grid-cols-3"><div className="rounded-2xl bg-[#EDF7F2] p-4"><span className="text-[10px] font-bold uppercase text-[#60786E]">Emergency savings</span><strong className="mt-2 block text-2xl text-[#17634D]">{money(simulatedSavings)}</strong></div><div className="rounded-2xl bg-[#EDF7F2] p-4"><span className="text-[10px] font-bold uppercase text-[#60786E]">New bill cushion</span><strong className="mt-2 block text-2xl text-[#17634D]">{simulatedBuffer} days</strong></div><div className="rounded-2xl bg-[#EDF7F2] p-4"><span className="text-[10px] font-bold uppercase text-[#60786E]">New score</span><strong className="mt-2 block text-2xl text-[#17634D]">{simulatedScore}/100</strong></div></div></Card></div>
     </div>
   );

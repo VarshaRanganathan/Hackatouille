@@ -207,6 +207,89 @@ function deriveDashboardMetrics(profile, expenses, transactions) {
   };
 }
 
+function formatRupees(value) {
+  return new Intl.NumberFormat("en-IN", {
+    style: "currency",
+    currency: "INR",
+    maximumFractionDigits: 0,
+  }).format(Number(value) || 0);
+}
+
+function extractMessageAmount(message, keywordPattern) {
+  const afterKeyword = message.match(
+    new RegExp(
+      `(?:${keywordPattern})[^\\d₹]{0,20}(?:₹|rs\\.?|inr)?\\s*([\\d,]+(?:\\.\\d+)?)`,
+      "i",
+    ),
+  );
+  const fallback = message.match(/(?:₹|rs\.?|inr)\s*([\d,]+(?:\.\d+)?)/i);
+  const raw = afterKeyword?.[1] || fallback?.[1];
+  return raw ? Number(raw.replace(/,/g, "")) || 0 : 0;
+}
+
+function buildGuidanceReply(message, profile, metrics, expenses, upcomingBills) {
+  const normalized = message.toLowerCase();
+  const firstName = String(profile.full_name || "there").trim().split(/\s+/)[0];
+  const nearestBill = upcomingBills[0];
+
+  if (/\b(save|saving|savings)\b/.test(normalized)) {
+    const requested = extractMessageAmount(message, "save|saving");
+    const statedInflow = extractMessageAmount(
+      message,
+      "earned|earnt|received|inflow|income",
+    );
+    const todayInflow = statedInflow || metrics.avgDailyIncome;
+    const roomAfterEssentials = Math.max(
+      0,
+      Math.round(todayInflow - metrics.dailyBurnRate),
+    );
+    const billNote = nearestBill
+      ? ` Your next tagged bill is ${nearestBill.name} for ${formatRupees(nearestBill.amount)} in ${nearestBill.due_in_days} days.`
+      : " You have no upcoming tagged bills right now.";
+
+    if (!requested) {
+      return `${firstName}, using ${formatRupees(todayInflow)} as today’s expected inflow, you have about ${formatRupees(roomAfterEssentials)} left after protecting ${formatRupees(metrics.dailyBurnRate)} for one day of essentials.${billNote} Tell me the amount you want to save for a direct yes-or-no check.`;
+    }
+    if (requested <= roomAfterEssentials) {
+      return `Yes—${formatRupees(requested)} fits within the ${formatRupees(roomAfterEssentials)} left after protecting today’s essential cost of ${formatRupees(metrics.dailyBurnRate)}.${billNote} Review the bill timing before you tap Save; I have not moved any money.`;
+    }
+    return `I would pause that transfer. Saving ${formatRupees(requested)} is ${formatRupees(requested - roomAfterEssentials)} above the room left after today’s essential cost. A safer upper limit is ${formatRupees(roomAfterEssentials)}.${billNote}`;
+  }
+
+  if (/\b(loan|borrow|borrowing|credit|afford)\b/.test(normalized)) {
+    const requested = extractMessageAmount(
+      message,
+      "loan|borrow|borrowing|credit|afford",
+    );
+    if (!requested) {
+      return `${firstName}, your current 14-day affordability ceiling is ${formatRupees(metrics.affordabilityCeiling)}. It protects 14 days of essential costs first, then limits borrowing to 40% of the remaining expected cash flow. Tell me a loan amount and I’ll compare it directly.`;
+    }
+    if (requested <= metrics.affordabilityCeiling) {
+      return `${formatRupees(requested)} is within your current ceiling of ${formatRupees(metrics.affordabilityCeiling)}. That keeps the request inside the plan’s 40% discretionary cash-flow limit. This is guidance, not a loan approval, and no application has been submitted.`;
+    }
+    return `${formatRupees(requested)} is above your current ceiling by ${formatRupees(requested - metrics.affordabilityCeiling)}. A safer counter-offer is ${formatRupees(metrics.affordabilityCeiling)} or less so your 14-day essential costs stay protected.`;
+  }
+
+  if (/\b(buffer|score|cushion|slow week|improve)\b/.test(normalized)) {
+    const largestExpense = [...expenses].sort(
+      (left, right) =>
+        (Number(right.amount) || 0) - (Number(left.amount) || 0),
+    )[0];
+    const reduction = largestExpense
+      ? Math.round((Number(largestExpense.amount) || 0) * 0.1)
+      : 0;
+    const extraDays = Math.floor(
+      reduction / Math.max(1, metrics.dailyBurnRate),
+    );
+    const expenseAdvice = largestExpense
+      ? ` Your largest tagged monthly cost is ${largestExpense.name} at ${formatRupees(largestExpense.amount)}. Cutting it by 10% would free about ${formatRupees(reduction)}—roughly ${extraDays} extra full buffer day${extraDays === 1 ? "" : "s"} at your current burn rate.`
+      : "";
+    return `${firstName}, your ${formatRupees(metrics.currentBalance)} available balance currently covers ${metrics.bufferDays} full days at ${formatRupees(metrics.dailyBurnRate)} per day.${expenseAdvice} The most direct improvement is to keep new savings available for essentials or reduce one tagged recurring cost; your score rises as complete buffer days rise.`;
+  }
+
+  return `${firstName}, your current plan shows ${metrics.bufferDays} full buffer days, ${formatRupees(metrics.currentBalance)} available, and a credit ceiling of ${formatRupees(metrics.affordabilityCeiling)}. Ask me about a specific saving amount, loan amount, upcoming bill, or how to improve your cushion, and I’ll explain it using these live numbers.`;
+}
+
 app.post("/api/users/onboard", async (req, res) => {
   let createdAuthUserId = null;
   try {
@@ -602,6 +685,75 @@ app.post("/api/savings/commit", requireActiveUser, async (req, res) => {
   } catch (error) {
     console.error("Savings transfer failed:", error.message);
     return res.status(500).json({ error: "Unable to save this amount." });
+  }
+});
+
+app.post("/api/guidance/chat", requireActiveUser, async (req, res) => {
+  try {
+    const requestedUserId = String(req.body.userId || "").trim();
+    const userMessage = String(req.body.userMessage || "").trim();
+    if (requestedUserId && requestedUserId !== req.activeUserId) {
+      return res.status(403).json({
+        error: "The requested profile does not match the active session.",
+      });
+    }
+    if (!userMessage || userMessage.length > 500) {
+      return res.status(400).json({
+        error: "userMessage must contain between 1 and 500 characters.",
+      });
+    }
+
+    const [profileResult, expensesResult, transactionsResult] =
+      await Promise.all([
+        req.db
+          .from("profiles")
+          .select("*")
+          .eq("id", req.activeUserId)
+          .single(),
+        req.db
+          .from("recurring_expenses")
+          .select("*")
+          .eq("user_id", req.activeUserId),
+        req.db
+          .from("transactions")
+          .select("amount, type, category")
+          .eq("user_id", req.activeUserId),
+      ]);
+    const profile = ensureDatabaseResult(
+      profileResult,
+      "Unable to fetch the profile",
+    );
+    const expenses = ensureDatabaseResult(
+      expensesResult,
+      "Unable to fetch recurring expenses",
+    );
+    const transactions = ensureDatabaseResult(
+      transactionsResult,
+      "Unable to fetch transactions",
+    );
+    const metrics = deriveDashboardMetrics(profile, expenses, transactions);
+    const upcomingBills = buildUpcomingBills(expenses);
+    const reply = buildGuidanceReply(
+      userMessage,
+      profile,
+      metrics,
+      expenses,
+      upcomingBills,
+    );
+
+    return res.json({
+      reply,
+      context: {
+        current_balance: metrics.currentBalance,
+        daily_burn_rate: metrics.dailyBurnRate,
+        buffer_days: metrics.bufferDays,
+        affordability_ceiling: metrics.affordabilityCeiling,
+        upcoming_bills: upcomingBills,
+      },
+    });
+  } catch (error) {
+    console.error("Guidance chat failed:", error.message);
+    return res.status(500).json({ error: "Unable to prepare guidance right now." });
   }
 });
 

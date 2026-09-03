@@ -1,0 +1,20 @@
+Please refactor `src/App.jsx` and `server.js` to implement an actual interactive AI Financial Chatbot inside Module 6 (Guidance Tab):
+
+1. Interactive Chat UI & State (`src/App.jsx`):
+   - Add a full chat window UI with an active conversation history array (`messages: [{ sender: 'bot' | 'user', text: '' }]`).
+   - Include a fixed text input field at the bottom with a placeholder ("Ask about your savings, bills, or loan limits...") and a green Send button.
+   - Retain the quick-prompt pills above the input field ("Can I save ₹500 today?", "Can I afford a loan?", "Why did my score change?") that automatically send when tapped.
+   - Automatically scroll the chat window to the bottom whenever a new message arrives.
+
+2. Plain-Language Guidance Bot Endpoint (`POST /api/guidance/chat` in `server.js`):
+   - Accept `{ userId, userMessage }` in the request body.
+   - Fetch or reference the active single user's financial profile (Current Balance, Daily Burn Rate, Buffer Days, Upcoming Bills, Credit Ceiling).
+   - Generate intelligent, plain-language financial guidance tailored to their exact data:
+     * Question about Savings ("Can I save X?"): Compare requested amount against `(Today Inflow - Daily Burn Rate)`. Explain if saving that amount leaves enough room for upcoming bills.
+     * Question about Loans/Credit ("Can I afford X?"): Compare against the 40% discretionary cash-flow Affordability Ceiling.
+     * Question about Buffer/Score ("How to improve buffer?"): Give actionable advice based on their tagged recurring expenses and current liquid balance.
+     * General Inquiries: Provide friendly, non-jargon financial explanations referencing their name and current Buffer Days.
+
+3. Visual Design & Safety Guarantee:
+   - Style chat bubbles cleanly: User messages in deep emerald (`bg-[#0F4135] text-white self-end`), Bot messages in soft card white (`bg-white border text-slate-900 self-start`).
+   - Include a clear banner below the chat: "Guidance is based on your real-time cash flow. ResilientBank never executes transactions without your explicit tap."
