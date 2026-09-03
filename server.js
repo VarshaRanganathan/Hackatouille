@@ -237,25 +237,41 @@ app.post("/api/users/onboard", async (req, res) => {
   }
 });
 
-app.get("/api/dashboard/active", requireActiveUser, async (req, res) => {
+app.get("/api/dashboard/active", async (req, res) => {
   try {
+    const identity = await resolveRequestIdentity(req);
+    if (!identity) {
+      return res.json({
+        onboarded: false,
+        profile: null,
+        current_balance: 0,
+        resilience_score: 0,
+        buffer_days: 0,
+        daily_burn_rate: 0,
+        monthly_essential_expenses: 0,
+        upcoming_bills: [],
+      });
+    }
+
+    const activeUserId = identity.userId;
+    const db = identity.db;
     const [profileResult, scoreResult, expensesResult] = await Promise.all([
-      req.db
+      db
         .from("profiles")
         .select("*")
-        .eq("id", req.activeUserId)
+        .eq("id", activeUserId)
         .maybeSingle(),
-      req.db
+      db
         .from("resilience_scores")
         .select("*")
-        .eq("user_id", req.activeUserId)
+        .eq("user_id", activeUserId)
         .order("created_at", { ascending: false })
         .limit(1)
         .maybeSingle(),
-      req.db
+      db
         .from("recurring_expenses")
         .select("*")
-        .eq("user_id", req.activeUserId),
+        .eq("user_id", activeUserId),
     ]);
 
     const profile = ensureDatabaseResult(
@@ -273,13 +289,20 @@ app.get("/api/dashboard/active", requireActiveUser, async (req, res) => {
 
     if (!profile) {
       clearActiveUserCookie(req, res);
-      return res.status(404).json({
-        error: "No onboarded user was found.",
-        code: "ONBOARDING_REQUIRED",
+      return res.json({
+        onboarded: false,
+        profile: null,
+        current_balance: 0,
+        resilience_score: 0,
+        buffer_days: 0,
+        daily_burn_rate: 0,
+        monthly_essential_expenses: 0,
+        upcoming_bills: [],
       });
     }
 
     return res.json({
+      onboarded: true,
       profile,
       current_balance: Number(profile.current_balance) || 0,
       resilience_score: Number(score?.score) || 0,

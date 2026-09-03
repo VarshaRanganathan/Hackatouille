@@ -1,14 +1,12 @@
 import { useEffect, useMemo, useState } from "react";
 import {
   AlertTriangle,
-  ArrowDownRight,
+  ArrowLeft,
   ArrowRight,
-  ArrowUpRight,
   Bell,
   Bot,
-  CalendarDays,
   Check,
-  ChevronDown,
+  ChevronRight,
   CreditCard,
   Database,
   Gauge,
@@ -21,12 +19,15 @@ import {
   RefreshCw,
   ShieldCheck,
   SlidersHorizontal,
+  Sparkles,
   Trash2,
   TrendingUp,
   WalletCards,
   X,
   Zap,
 } from "lucide-react";
+
+const ONBOARDING_MARKER = "rb_onboarding_complete";
 
 const tabs = [
   { id: "home", label: "Home", icon: Home },
@@ -36,52 +37,51 @@ const tabs = [
   { id: "guidance", label: "Guidance", icon: MessageCircle },
 ];
 
-const people = [
-  ["Ravi Kumar", "Delivery Worker"],
-  ["Meera Nair", "Freelance Designer"],
-  ["Arjun Singh", "Cab Driver"],
-  ["Pooja Shah", "Home Baker"],
-  ["Vikram Rao", "Electrician"],
-  ["Ananya Iyer", "Content Writer"],
-  ["Karan Patel", "Delivery Worker"],
-  ["Neha Das", "Tutor"],
-  ["Sanjay Gupta", "Plumber"],
-  ["Ishita Bose", "Photographer"],
-  ["Rahul Menon", "Cab Driver"],
-  ["Kavya Reddy", "Tailor"],
-  ["Amit Joshi", "Mechanic"],
-  ["Sneha Pillai", "Beauty Professional"],
-  ["Dev Malhotra", "Video Editor"],
-  ["Nandini Roy", "Home Chef"],
-  ["Sameer Khan", "Delivery Worker"],
-  ["Ritu Verma", "Tutor"],
-  ["Aditya Jain", "Web Developer"],
-  ["Farah Ali", "Craft Seller"],
-  ["Gopal Yadav", "Electrician"],
-  ["Tanya Kapoor", "Graphic Designer"],
-  ["Manoj Sethi", "Cab Driver"],
-  ["Shreya Kulkarni", "Dance Teacher"],
-  ["Nikhil Bhat", "Photographer"],
-  ["Asha Thomas", "Home Baker"],
-  ["Rohan Desai", "Fitness Coach"],
-  ["Divya Mishra", "Content Writer"],
-  ["Harish Naidu", "Repair Technician"],
-  ["Lakshmi Krishnan", "Tailor"],
+const questions = [
+  { key: "income_range_min", label: "What is the least you earn on a work day?", prefix: "₹", type: "number", placeholder: "700" },
+  { key: "income_range_max", label: "What is the most you earn on a work day?", prefix: "₹", type: "number", placeholder: "1,500" },
+  { key: "work_days_per_week", label: "How many days do you usually work each week?", type: "number", placeholder: "6", max: 7 },
+  { key: "income_frequency", label: "How often do you usually get paid?", type: "choice", options: ["Daily", "Weekly", "Every two weeks", "Monthly"] },
+  { key: "rent", label: "How much is your monthly rent or home payment?", prefix: "₹", type: "number", placeholder: "3,200" },
+  { key: "utilities", label: "How much do you spend on electricity and utilities each month?", prefix: "₹", type: "number", placeholder: "850" },
+  { key: "food", label: "How much does your household spend on food each month?", prefix: "₹", type: "number", placeholder: "3,000" },
+  { key: "transport", label: "How much do you spend on fuel and transport each month?", prefix: "₹", type: "number", placeholder: "1,500" },
+  { key: "debt_payment", label: "How much do you pay toward loans or debt each month?", prefix: "₹", type: "number", placeholder: "0" },
+  { key: "other_essentials", label: "Any other essential monthly costs?", prefix: "₹", type: "number", placeholder: "0" },
+  { key: "current_balance", label: "How much money can you use right now?", prefix: "₹", type: "number", placeholder: "6,850" },
+  { key: "current_savings", label: "How much have you already set aside for emergencies?", prefix: "₹", type: "number", placeholder: "3,400" },
+  { key: "emergency_goal", label: "How much emergency money would help you feel safer?", prefix: "₹", type: "number", placeholder: "5,000" },
+  { key: "goal_months", label: "How many months would you like to reach that goal in?", type: "number", placeholder: "6" },
+  { key: "household_size", label: "How many people share your household costs?", type: "number", placeholder: "3" },
+  { key: "dependents", label: "How many people depend on your income?", type: "number", placeholder: "2" },
+  { key: "income_predictability", label: "How predictable does your income feel?", type: "choice", options: ["Very unpredictable", "A little unpredictable", "Mostly steady", "Very steady"] },
+  { key: "saving_style", label: "Which saving style feels easiest?", type: "choice", options: ["Small amounts daily", "Once a week", "Whenever I get paid", "Let the app suggest"] },
+  { key: "main_money_worry", label: "What worries you most about money?", type: "choice", options: ["Bills arriving before income", "Emergency costs", "Debt payments", "Not saving enough"] },
+  { key: "primary_goal", label: "What would you most like ResilientBank to help with?", type: "choice", options: ["Cover bills on time", "Build emergency savings", "Borrow more safely", "Understand my cash flow"] },
 ];
 
-const demoUsers = people.map(([full_name, role], index) => ({
-  id: `demo-user-${String(index + 1).padStart(2, "0")}`,
-  full_name,
-  role,
-  user_type: index === 0 ? "admin" : "member",
-}));
-
-const demoDashboard = (user) => ({
-  profile: user,
-  resilienceScore: { score: 68, buffer_days: 12 },
-  creditOffers: [],
-  netBalance: 6850,
-});
+const initialAnswers = {
+  income_range_min: "",
+  income_range_max: "",
+  work_days_per_week: "",
+  income_frequency: "",
+  rent: "",
+  utilities: "",
+  food: "",
+  transport: "",
+  debt_payment: "0",
+  other_essentials: "0",
+  current_balance: "",
+  current_savings: "",
+  emergency_goal: "",
+  goal_months: "",
+  household_size: "",
+  dependents: "",
+  income_predictability: "",
+  saving_style: "",
+  main_money_worry: "",
+  primary_goal: "",
+};
 
 const money = (value) =>
   new Intl.NumberFormat("en-IN", {
@@ -90,639 +90,414 @@ const money = (value) =>
     maximumFractionDigits: 0,
   }).format(Number(value) || 0);
 
-const getToken = () =>
-  window.localStorage.getItem("resilientbank_access_token") || "";
-
-async function apiFetch(path, options = {}) {
-  const headers = new Headers(options.headers || {});
-  const token = getToken();
-  if (token) headers.set("Authorization", `Bearer ${token}`);
-  if (options.body) headers.set("Content-Type", "application/json");
-  return fetch(path, { ...options, headers });
-}
-
 function cx(...classes) {
   return classes.filter(Boolean).join(" ");
 }
 
-function Badge({ children, tone = "green" }) {
-  const tones = {
-    green: "bg-[#E7F3ED] text-[#25614E]",
-    amber: "bg-[#FFF3D9] text-[#8A5A08]",
-    blue: "bg-[#EBF2FF] text-[#315E9A]",
-  };
+async function request(path, options = {}) {
+  const headers = new Headers(options.headers || {});
+  if (options.body) headers.set("Content-Type", "application/json");
+  return fetch(path, { ...options, headers, credentials: "include" });
+}
+
+function Brand() {
   return (
-    <span className={cx("inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-bold", tones[tone])}>
+    <div className="flex items-center gap-2.5">
+      <span className="relative grid h-11 w-11 place-items-center rounded-2xl bg-[#0F4135] text-white shadow-lg shadow-[#0F4135]/15">
+        <ShieldCheck size={23} />
+        <Leaf size={10} className="absolute right-2 top-2 text-[#91D0B2]" />
+      </span>
+      <span>
+        <strong className="block text-base tracking-[-0.04em] text-[#0F4135]">ResilientBank</strong>
+        <span className="text-[9px] font-bold uppercase tracking-[0.16em] text-[#7A8782]">Steady money, one day at a time</span>
+      </span>
+    </div>
+  );
+}
+
+function PrimaryButton({ children, onClick, disabled, type = "button", className = "" }) {
+  return (
+    <button
+      type={type}
+      onClick={onClick}
+      disabled={disabled}
+      className={cx(
+        "focus-ring flex w-full items-center justify-center gap-2 rounded-2xl bg-[#0F4135] px-5 py-3.5 text-sm font-bold text-white shadow-lg shadow-[#0F4135]/10 transition hover:bg-[#155343] disabled:cursor-not-allowed disabled:opacity-45",
+        className,
+      )}
+    >
       {children}
-    </span>
+    </button>
+  );
+}
+
+function WelcomeStage({ identity, setIdentity, onContinue }) {
+  const ready = identity.full_name.trim().length >= 2 && identity.work_type.trim().length >= 2;
+  return (
+    <OnboardingShell stage={1}>
+      <div className="mx-auto max-w-lg">
+        <span className="inline-flex items-center gap-1.5 rounded-full bg-[#E7F3ED] px-3 py-1.5 text-xs font-bold text-[#24644F]">
+          <Sparkles size={13} /> A simple plan for uneven income
+        </span>
+        <h1 className="mt-5 text-4xl font-bold tracking-[-0.065em] text-[#18231F] sm:text-5xl">
+          Let’s start with your name.
+        </h1>
+        <p className="mt-4 text-base leading-7 text-[#66746F]">
+          We’ll ask a few everyday questions, then show how much is safe to spend, save, and keep for bills.
+        </p>
+        <div className="mt-8 space-y-5">
+          <label className="block">
+            <span className="text-sm font-bold text-[#3D4A45]">Your full name</span>
+            <input
+              autoFocus
+              value={identity.full_name}
+              onChange={(event) => setIdentity((current) => ({ ...current, full_name: event.target.value }))}
+              placeholder="Ravi Kumar"
+              className="focus-ring mt-2 w-full rounded-2xl border border-[#D9E1DD] bg-white px-4 py-3.5 text-base font-semibold text-[#293630] outline-none placeholder:font-normal placeholder:text-[#A0ABA6]"
+            />
+          </label>
+          <label className="block">
+            <span className="text-sm font-bold text-[#3D4A45]">What work do you do?</span>
+            <input
+              value={identity.work_type}
+              onChange={(event) => setIdentity((current) => ({ ...current, work_type: event.target.value }))}
+              placeholder="Delivery / Gig Worker"
+              className="focus-ring mt-2 w-full rounded-2xl border border-[#D9E1DD] bg-white px-4 py-3.5 text-base font-semibold text-[#293630] outline-none placeholder:font-normal placeholder:text-[#A0ABA6]"
+            />
+          </label>
+        </div>
+        <PrimaryButton onClick={onContinue} disabled={!ready} className="mt-8">
+          Continue to permissions <ArrowRight size={17} />
+        </PrimaryButton>
+        <p className="mt-4 text-center text-xs leading-5 text-[#82908A]">Your answers are used only to build your money plan.</p>
+      </div>
+    </OnboardingShell>
+  );
+}
+
+function ConsentToggle({ checked, onChange, title, detail, icon: Icon }) {
+  return (
+    <button
+      type="button"
+      onClick={() => onChange(!checked)}
+      className={cx(
+        "focus-ring flex w-full items-center gap-3 rounded-2xl border p-4 text-left transition",
+        checked ? "border-[#86B5A5] bg-[#EDF7F2]" : "border-[#E0E6E3] bg-white",
+      )}
+    >
+      <span className={cx("grid h-10 w-10 shrink-0 place-items-center rounded-xl", checked ? "bg-[#D6EDE3] text-[#17634D]" : "bg-[#F0F3F1] text-[#71807A]")}>
+        <Icon size={19} />
+      </span>
+      <span className="min-w-0 flex-1">
+        <strong className="block text-sm text-[#34423D]">{title}</strong>
+        <span className="mt-1 block text-xs leading-5 text-[#74817C]">{detail}</span>
+      </span>
+      <span className={cx("relative h-7 w-12 shrink-0 rounded-full transition", checked ? "bg-[#1D7258]" : "bg-[#CCD5D1]")}>
+        <span className={cx("absolute top-1 h-5 w-5 rounded-full bg-white shadow-sm transition-all", checked ? "left-6" : "left-1")} />
+      </span>
+    </button>
+  );
+}
+
+function ConsentStage({ terms, setTerms, consent, setConsent, onBack, onContinue }) {
+  const allAllowed = terms && Object.values(consent).every(Boolean);
+  return (
+    <OnboardingShell stage={2}>
+      <div className="mx-auto max-w-xl">
+        <button onClick={onBack} className="focus-ring mb-6 flex items-center gap-1 text-xs font-bold text-[#52665E]"><ArrowLeft size={15} /> Back</button>
+        <h1 className="text-3xl font-bold tracking-[-0.055em] text-[#18231F] sm:text-4xl">You choose what we can use.</h1>
+        <p className="mt-3 text-sm leading-6 text-[#68766F]">These permissions help us calculate a useful plan. You can delete your data later from Data Control.</p>
+        <div className="mt-7 space-y-3">
+          <ConsentToggle checked={consent.income} onChange={(value) => setConsent((current) => ({ ...current, income: value }))} title="Income analysis" detail="Use your earning range to spot stronger and slower days." icon={TrendingUp} />
+          <ConsentToggle checked={consent.expenses} onChange={(value) => setConsent((current) => ({ ...current, expenses: value }))} title="Expense estimation" detail="Use your bills to protect essential money first." icon={WalletCards} />
+          <ConsentToggle checked={consent.savings} onChange={(value) => setConsent((current) => ({ ...current, savings: value }))} title="Savings goals" detail="Use your target to suggest small, realistic steps." icon={PiggyBank} />
+        </div>
+        <label className="focus-ring mt-5 flex cursor-pointer items-start gap-3 rounded-2xl border border-[#E0E6E3] bg-white p-4">
+          <input type="checkbox" checked={terms} onChange={(event) => setTerms(event.target.checked)} className="mt-0.5 h-5 w-5 accent-[#0F4135]" />
+          <span><strong className="block text-sm text-[#34423D]">I agree to the Terms & Conditions</strong><span className="mt-1 block text-xs leading-5 text-[#74817C]">I understand this is guidance, not a promise of income or credit.</span></span>
+        </label>
+        {!allAllowed && <p className="mt-3 flex items-center gap-2 text-xs text-[#8A641E]"><Info size={14} /> Turn on all three items and accept the terms to continue.</p>}
+        <PrimaryButton onClick={onContinue} disabled={!allAllowed} className="mt-7">Start the questions <ArrowRight size={17} /></PrimaryButton>
+      </div>
+    </OnboardingShell>
+  );
+}
+
+function QuestionInput({ question, value, onChange }) {
+  if (question.type === "choice") {
+    return (
+      <div className="grid gap-3 sm:grid-cols-2">
+        {question.options.map((option) => (
+          <button
+            type="button"
+            key={option}
+            onClick={() => onChange(option)}
+            className={cx(
+              "focus-ring flex min-h-16 items-center justify-between rounded-2xl border px-4 py-3 text-left text-sm font-bold transition",
+              value === option ? "border-[#0F4135] bg-[#EAF5EF] text-[#164D3D]" : "border-[#DDE4E0] bg-white text-[#53625C]",
+            )}
+          >
+            {option}
+            {value === option && <Check size={17} />}
+          </button>
+        ))}
+      </div>
+    );
+  }
+
+  return (
+    <div className="relative">
+      {question.prefix && <span className="absolute left-4 top-4 text-lg font-bold text-[#66756F]">{question.prefix}</span>}
+      <input
+        autoFocus
+        type="number"
+        min="0"
+        max={question.max}
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        placeholder={question.placeholder}
+        className={cx(
+          "focus-ring w-full [appearance:textfield] rounded-2xl border border-[#D9E1DD] bg-white py-4 pr-4 text-2xl font-bold text-[#26332E] outline-none placeholder:text-[#AFB8B4] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none",
+          question.prefix ? "pl-10" : "pl-4",
+        )}
+      />
+    </div>
+  );
+}
+
+function QuestionnaireStage({ answers, setAnswers, questionIndex, setQuestionIndex, onBack, onSubmit, submitting, error }) {
+  const question = questions[questionIndex];
+  const value = answers[question.key];
+  const valid = value !== "" && value !== null && value !== undefined;
+  const progress = ((questionIndex + 1) / questions.length) * 100;
+
+  const previous = () => {
+    if (questionIndex === 0) onBack();
+    else setQuestionIndex((current) => current - 1);
+  };
+
+  const next = () => {
+    if (questionIndex === questions.length - 1) onSubmit();
+    else setQuestionIndex((current) => current + 1);
+  };
+
+  return (
+    <OnboardingShell stage={3}>
+      <div className="mx-auto max-w-xl">
+        <div className="flex items-center justify-between text-xs font-bold text-[#5D7068]">
+          <span>Step {questionIndex + 1} of {questions.length}</span>
+          <span>{Math.round(progress)}% complete</span>
+        </div>
+        <div className="mt-3 h-2 overflow-hidden rounded-full bg-[#DDE7E2]">
+          <div className="h-full rounded-full bg-[#1F755A] transition-all duration-300" style={{ width: `${progress}%` }} />
+        </div>
+        <div className="min-h-[360px] py-10 sm:min-h-[390px] sm:py-14">
+          <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-[#6D8178]">Your money today</p>
+          <h1 className="mt-3 text-3xl font-bold leading-tight tracking-[-0.055em] text-[#18231F] sm:text-4xl">{question.label}</h1>
+          <div className="mt-8"><QuestionInput question={question} value={value} onChange={(nextValue) => setAnswers((current) => ({ ...current, [question.key]: nextValue }))} /></div>
+          {error && questionIndex === questions.length - 1 && <div className="mt-5 flex gap-2 rounded-2xl bg-[#FFF1E8] p-4 text-sm leading-6 text-[#8C4E31]"><AlertTriangle className="mt-1 shrink-0" size={17} />{error}</div>}
+        </div>
+        <div className="flex gap-3 border-t border-[#E0E6E3] pt-5">
+          <button onClick={previous} disabled={submitting} className="focus-ring flex items-center gap-2 rounded-2xl border border-[#D8E0DC] bg-white px-5 py-3.5 text-sm font-bold text-[#53635D]"><ArrowLeft size={16} /> Back</button>
+          <PrimaryButton onClick={next} disabled={!valid || submitting}>
+            {submitting ? "Building your plan..." : questionIndex === questions.length - 1 ? "Build my plan" : "Next question"}
+            {!submitting && <ArrowRight size={17} />}
+          </PrimaryButton>
+        </div>
+      </div>
+    </OnboardingShell>
+  );
+}
+
+function OnboardingShell({ stage, children }) {
+  return (
+    <div className="min-h-screen bg-[#F8F9FA]">
+      <header className="border-b border-[#E4E9E6] bg-white/85 px-4 py-4 backdrop-blur-md sm:px-6">
+        <div className="mx-auto flex max-w-5xl items-center justify-between"><Brand /><span className="rounded-full bg-[#ECF5F1] px-3 py-1.5 text-[11px] font-bold text-[#356555]">Stage {stage} of 3</span></div>
+      </header>
+      <main className="px-4 py-10 sm:px-6 sm:py-16">{children}</main>
+    </div>
+  );
+}
+
+function ScoreRing({ score }) {
+  return (
+    <div className="relative grid h-36 w-36 shrink-0 place-items-center rounded-full" style={{ background: `conic-gradient(#258064 ${score * 3.6}deg, #DDEAE5 0deg)` }}>
+      <div className="grid h-[122px] w-[122px] place-items-center rounded-full bg-white text-center">
+        <div><strong className="block text-4xl tracking-[-0.07em] text-[#0F4135]">{Math.round(score)}</strong><span className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#78857F]">out of 100</span></div>
+      </div>
+    </div>
   );
 }
 
 function Card({ children, className = "" }) {
+  return <section className={cx("rounded-[24px] border border-[#E4E9E6] bg-white p-5 shadow-[0_8px_30px_rgba(15,65,53,.06)] sm:p-6", className)}>{children}</section>;
+}
+
+function CashChart() {
   return (
-    <section className={cx("rounded-[24px] border border-[#E7EBE9] bg-white p-5 shadow-[0_8px_30px_rgba(15,65,53,0.06)] sm:p-6", className)}>
-      {children}
-    </section>
+    <svg viewBox="0 0 500 130" preserveAspectRatio="none" className="h-36 w-full" role="img" aria-label="Balance forecast">
+      <defs><linearGradient id="balanceFill" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#3D9879" stopOpacity=".3" /><stop offset="100%" stopColor="#3D9879" stopOpacity="0" /></linearGradient></defs>
+      <path d="M0 102 C55 92 72 65 120 74 S190 104 238 80 S307 46 360 59 S431 45 500 28 L500 130 L0 130Z" fill="url(#balanceFill)" />
+      <path d="M0 102 C55 92 72 65 120 74 S190 104 238 80 S307 46 360 59 S431 45 500 28" fill="none" stroke="#26755B" strokeWidth="4" strokeLinecap="round" />
+      <line x1="0" y1="110" x2="500" y2="110" stroke="#D79A2B" strokeDasharray="6 5" />
+    </svg>
   );
 }
 
-function SectionTitle({ label, title, action, onAction }) {
-  return (
-    <div className="mb-4 flex items-end justify-between gap-3">
-      <div>
-        {label && <p className="mb-1 text-[10px] font-bold uppercase tracking-[0.17em] text-[#71837E]">{label}</p>}
-        <h2 className="text-xl font-bold tracking-[-0.035em] text-[#202826]">{title}</h2>
-      </div>
-      {action && (
-        <button onClick={onAction} className="focus-ring shrink-0 text-xs font-bold text-[#0F684F]">
-          {action}
-        </button>
-      )}
-    </div>
-  );
-}
-
-function PageHeading({ eyebrow, title, copy }) {
-  return (
-    <div>
-      <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-[#5F7B71]">{eyebrow}</p>
-      <h1 className="mt-2 text-3xl font-bold tracking-[-0.055em] text-[#17231F] sm:text-4xl">{title}</h1>
-      <p className="mt-2 max-w-xl text-sm leading-6 text-[#66736F]">{copy}</p>
-    </div>
-  );
-}
-
-function CashFlowChart({ large = false }) {
-  return (
-    <div className={large ? "h-56" : "h-32"}>
-      <svg viewBox="0 0 500 160" preserveAspectRatio="none" className="h-full w-full" role="img" aria-label="30 day cash flow forecast">
-        <defs>
-          <linearGradient id="cashFill" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="#2C8068" stopOpacity=".28" />
-            <stop offset="100%" stopColor="#2C8068" stopOpacity=".02" />
-          </linearGradient>
-        </defs>
-        <line x1="0" y1="122" x2="500" y2="122" stroke="#D9A441" strokeDasharray="5 5" />
-        <path d="M0 112 C45 105 62 78 105 87 S167 114 210 92 S273 52 325 69 S390 97 432 58 S480 37 500 43 L500 160 L0 160Z" fill="url(#cashFill)" />
-        <path d="M0 112 C45 105 62 78 105 87 S167 114 210 92 S273 52 325 69 S390 97 432 58 S480 37 500 43" fill="none" stroke="#1F7159" strokeWidth="4" strokeLinecap="round" />
-        <circle cx="210" cy="92" r="6" fill="#D99A2B" stroke="white" strokeWidth="4" />
-      </svg>
-    </div>
-  );
-}
-
-function ScoreRing({ score = 68, size = 142 }) {
-  return (
-    <div
-      className="relative grid shrink-0 place-items-center rounded-full"
-      style={{
-        width: size,
-        height: size,
-        background: `conic-gradient(#218064 ${score * 3.6}deg, #E2EEE9 0deg)`,
-      }}
-    >
-      <div className="grid place-items-center rounded-full bg-white" style={{ width: size - 15, height: size - 15 }}>
-        <div className="text-center">
-          <strong className="block text-4xl tracking-[-0.07em] text-[#0F4135]">{score}</strong>
-          <span className="text-[10px] font-bold uppercase tracking-[0.15em] text-[#77857F]">out of 100</span>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function HomeTab({ dashboard, user, showToast, setTab, openWhy }) {
-  const balance = dashboard?.netBalance ?? 6850;
-  const score = dashboard?.resilienceScore?.score ?? 68;
-  const bufferDays = dashboard?.resilienceScore?.buffer_days ?? 12;
-
+function HomeTab({ dashboard, name, setTab, showToast }) {
+  const balance = Number(dashboard.current_balance) || 0;
+  const burn = Number(dashboard.daily_burn_rate) || 0;
+  const safeToSpend = Math.max(0, balance - burn * 7);
+  const bills = dashboard.upcoming_bills || [];
   return (
     <div className="space-y-5">
-      <div>
-        <p className="text-xs font-medium text-[#71807A]">Friday, 4 September</p>
-        <h1 className="mt-1 text-3xl font-bold tracking-[-0.055em] text-[#17231F]">
-          Hi, {user.full_name.split(" ")[0]}. Here’s your money today.
-        </h1>
-      </div>
-
-      <section className="overflow-hidden rounded-[28px] bg-[#0F4135] p-5 text-white shadow-[0_16px_40px_rgba(15,65,53,0.2)] sm:p-7">
-        <div className="flex items-start justify-between">
-          <div>
-            <p className="flex items-center gap-2 text-xs font-bold text-[#B9D7CC]">
-              <WalletCards size={15} /> How much do I have?
-            </p>
-            <div className="mt-4 text-5xl font-bold tracking-[-0.075em]">{money(balance)}</div>
-            <p className="mt-2 text-xs text-[#A8C9BE]">Available across your connected accounts</p>
-          </div>
-          <span className="rounded-2xl bg-white/10 p-3 text-[#C9E4DA]"><ShieldCheck size={22} /></span>
-        </div>
+      <div><p className="text-xs font-medium text-[#72807B]">Your plan is ready</p><h1 className="mt-1 text-3xl font-bold tracking-[-0.055em] text-[#18231F]">Hi, {name.split(" ")[0]}. Here’s your money today.</h1></div>
+      <section className="rounded-[28px] bg-[#0F4135] p-5 text-white shadow-xl shadow-[#0F4135]/15 sm:p-7">
+        <p className="flex items-center gap-2 text-xs font-bold text-[#B5D3C8]"><WalletCards size={15} /> Money you can use now</p>
+        <strong className="mt-4 block text-5xl tracking-[-0.075em]">{money(balance)}</strong>
         <div className="mt-7 grid grid-cols-2 gap-4 border-t border-white/15 pt-5">
-          <div>
-            <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#9EC2B6]">Safe to spend</p>
-            <strong className="mt-1 block text-2xl">{money(2300)}</strong>
-            <p className="mt-1 text-[11px] text-[#A8C9BE]">Bills are protected</p>
-          </div>
-          <div className="border-l border-white/15 pl-4">
-            <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#9EC2B6]">Next income</p>
-            <strong className="mt-1 block text-2xl">{money(1850)}</strong>
-            <p className="mt-1 text-[11px] text-[#A8C9BE]">Expected tomorrow</p>
-          </div>
+          <div><span className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#9DBFB3]">Safe to spend</span><strong className="mt-1 block text-2xl">{money(safeToSpend)}</strong></div>
+          <div className="border-l border-white/15 pl-4"><span className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#9DBFB3]">Bills covered</span><strong className="mt-1 block text-2xl">{Number(dashboard.buffer_days || 0).toFixed(0)} days</strong></div>
         </div>
       </section>
-
       <div className="grid gap-5 lg:grid-cols-[1.1fr_.9fr]">
         <Card>
-          <SectionTitle label="Bills and earnings" title="What’s coming up?" />
-          <div className="grid gap-2 sm:grid-cols-3">
-            {[
-              ["Electricity", "₹850", "in 3 days", Zap, "amber"],
-              ["Rent", "₹3,200", "in 5 days", CalendarDays, "amber"],
-              ["Expected income", "₹8,500", "over 14 days", TrendingUp, "green"],
-            ].map(([name, amount, when, Icon, tone]) => (
-              <div key={name} className={cx("rounded-2xl p-3.5", tone === "amber" ? "bg-[#FFF8E8]" : "bg-[#ECF6F1]")}>
-                <Icon size={16} className={tone === "amber" ? "text-[#A66B0B]" : "text-[#247359]"} />
-                <p className="mt-3 text-xs font-bold text-[#45514D]">{name}</p>
-                <strong className="mt-1 block text-lg text-[#202826]">{amount}</strong>
-                <span className="text-[11px] text-[#77827E]">{when}</span>
-              </div>
-            ))}
+          <h2 className="text-xl font-bold text-[#26332E]">What’s coming up?</h2>
+          <div className="mt-4 grid gap-2 sm:grid-cols-2">
+            {bills.length ? bills.slice(0, 4).map((bill) => <div key={bill.id} className="rounded-2xl bg-[#FFF7E4] p-3"><Zap size={15} className="text-[#A16A0B]" /><strong className="mt-2 block text-sm text-[#554421]">{bill.name}</strong><span className="mt-1 block text-lg font-bold text-[#2D302E]">{money(bill.amount)}</span><span className="text-[11px] text-[#857452]">in {bill.due_in_days} days</span></div>) : <p className="col-span-2 rounded-2xl bg-[#F5F7F6] p-4 text-sm text-[#6E7B76]">No upcoming bills have been added yet.</p>}
           </div>
-          <div className="mt-5 rounded-2xl bg-[#F6F8F7] p-3">
-            <div className="mb-2 flex items-center justify-between text-[11px] font-bold text-[#64736D]">
-              <span>30-day cash flow</span>
-              <span className="text-[#257059]">Stays above your safety line</span>
-            </div>
-            <CashFlowChart />
-          </div>
+          <div className="mt-4 rounded-2xl bg-[#F6F8F7] p-3"><CashChart /></div>
         </Card>
-
-        <Card className="border-[#F1DEB7] bg-[#FFFDF8]">
-          <Badge tone="amber"><Zap size={12} /> Today’s suggestion</Badge>
-          <h2 className="mt-4 text-2xl font-bold tracking-[-0.04em] text-[#302B22]">Your earnings were higher this week.</h2>
-          <p className="mt-2 text-sm leading-6 text-[#6E675A]">You can safely save <strong className="text-[#17664E]">₹300 today</strong> and still keep your bill money covered.</p>
-          <button onClick={openWhy} className="focus-ring mt-3 text-xs font-bold text-[#8B5C11] underline decoration-[#D8B46F] underline-offset-4">Why ₹300?</button>
-          <div className="mt-5 grid grid-cols-[1.35fr_1fr_.75fr] gap-2">
-            <button onClick={() => showToast("₹300 added to your saving plan.")} className="focus-ring rounded-xl bg-[#0F4135] px-3 py-3 text-xs font-bold text-white">Save ₹300</button>
-            <button onClick={() => setTab("save")} className="focus-ring rounded-xl border border-[#D8DED9] bg-white px-3 py-3 text-xs font-bold text-[#40514B]">Adjust</button>
-            <button onClick={() => showToast("Skipped for today. No money moved.")} className="focus-ring rounded-xl px-2 py-3 text-xs font-bold text-[#75817C]">Skip</button>
-          </div>
+        <Card className="border-[#F0D9A8] bg-[#FFFDF8]">
+          <span className="inline-flex items-center gap-1 rounded-full bg-[#FFF1CF] px-2.5 py-1 text-[11px] font-bold text-[#80560C]"><Sparkles size={12} /> Today’s suggestion</span>
+          <h2 className="mt-4 text-2xl font-bold tracking-[-0.04em] text-[#322D23]">Keep today’s saving small and safe.</h2>
+          <p className="mt-3 text-sm leading-6 text-[#70695B]">Your daily bill cost is about <strong>{money(burn)}</strong>. Check today’s income before moving anything.</p>
+          <button onClick={() => setTab("save")} className="focus-ring mt-5 w-full rounded-2xl bg-[#0F4135] py-3 text-sm font-bold text-white">Check what I can save</button>
+          <button onClick={() => showToast("Skipped for today. No money moved.")} className="focus-ring mt-2 w-full py-2 text-xs font-bold text-[#78837F]">Skip today</button>
         </Card>
       </div>
-
-      <button onClick={() => setTab("resilience")} className="focus-ring flex w-full items-center gap-4 rounded-[24px] border border-[#DDE9E4] bg-[#EDF7F2] p-4 text-left sm:p-5">
-        <ScoreRing score={score} size={92} />
-        <span className="min-w-0 flex-1">
-          <span className="text-[10px] font-bold uppercase tracking-[0.16em] text-[#5B796E]">Your resilience</span>
-          <strong className="mt-1 block text-xl text-[#173E32]">You have {bufferDays} days of bills covered.</strong>
-          <span className="mt-1 block text-xs leading-5 text-[#61766E]">Your score is {score}/100. You’re building a useful safety cushion.</span>
-        </span>
-        <ArrowRight size={20} className="shrink-0 text-[#2C705A]" />
-      </button>
     </div>
   );
 }
 
-function ResilienceTab({ dashboard, openExplanation }) {
-  const score = dashboard?.resilienceScore?.score ?? 68;
-  const days = dashboard?.resilienceScore?.buffer_days ?? 12;
-  const factors = [
-    ["Income steadiness", 72, "Your earnings arrive most weeks.", ArrowUpRight],
-    ["Savings balance", 64, "Your emergency fund is growing.", PiggyBank],
-    ["Cash ups and downs", 58, "A few low-income days need watching.", RefreshCw],
-  ];
-
+function ResilienceTab({ dashboard }) {
+  const score = Number(dashboard.resilience_score) || 0;
   return (
     <div className="space-y-5">
-      <PageHeading eyebrow="Resilience" title="How ready am I for a slow week?" copy="One simple score that shows how well your money can handle a surprise." />
-      <div className="grid gap-5 lg:grid-cols-[.85fr_1.15fr]">
-        <Card className="flex flex-col items-center justify-center text-center">
-          <ScoreRing score={score} size={170} />
-          <h2 className="mt-5 text-2xl font-bold text-[#173E32]">{days} days covered</h2>
-          <p className="mt-2 max-w-xs text-sm leading-6 text-[#68766F]">If income stopped today, your current cash could cover about {days} days of essential bills.</p>
-          <Badge tone="green"><TrendingUp size={12} /> Up 4 points this month</Badge>
-        </Card>
-        <Card>
-          <SectionTitle label="Next 30 days" title="Your balance forecast" />
-          <div className="flex items-center gap-2 rounded-xl bg-[#FFF6DF] px-3 py-2 text-xs font-bold text-[#855B12]">
-            <AlertTriangle size={14} /> Sep 13–15 may be a lower-income patch
-          </div>
-          <div className="mt-4"><CashFlowChart large /></div>
-          <div className="mt-1 flex justify-between text-[10px] text-[#84908B]"><span>Today</span><span>10 days</span><span>20 days</span><span>30 days</span></div>
-        </Card>
+      <div><p className="text-[10px] font-bold uppercase tracking-[0.17em] text-[#63776F]">Resilience</p><h1 className="mt-2 text-3xl font-bold tracking-[-0.055em] text-[#18231F]">How ready am I for a slow week?</h1></div>
+      <div className="grid gap-5 lg:grid-cols-[.8fr_1.2fr]">
+        <Card className="flex flex-col items-center text-center"><ScoreRing score={score} /><h2 className="mt-5 text-2xl font-bold text-[#173E32]">{Number(dashboard.buffer_days || 0).toFixed(0)} days covered</h2><p className="mt-2 text-sm leading-6 text-[#68766F]">This is how long your current balance could cover essential daily costs.</p></Card>
+        <Card><h2 className="text-xl font-bold text-[#26332E]">Your 30-day balance</h2><p className="mt-1 text-xs text-[#71807A]">The amber line shows your safety level.</p><div className="mt-4"><CashChart /></div></Card>
       </div>
-      <Card>
-        <SectionTitle label="What affects your score" title="Three things to watch" action="Explain my score" onAction={openExplanation} />
-        <div className="space-y-3">
-          {factors.map(([label, value, copy, Icon]) => (
-            <div key={label} className="rounded-2xl bg-[#F7F9F8] p-4">
-              <div className="flex items-center gap-3">
-                <span className="rounded-xl bg-[#E6F1EC] p-2 text-[#276D56]"><Icon size={16} /></span>
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center justify-between gap-3 text-sm font-bold text-[#34423D]"><span>{label}</span><span>{value}/100</span></div>
-                  <div className="mt-2 h-2 overflow-hidden rounded-full bg-[#DFE8E4]"><div className="h-full rounded-full bg-[#2C8068]" style={{ width: `${value}%` }} /></div>
-                  <p className="mt-2 text-xs text-[#74817C]">{copy}</p>
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
-      </Card>
+      <Card><h2 className="text-xl font-bold text-[#26332E]">What shapes your score?</h2><div className="mt-4 space-y-3">{[["Bill cushion", Math.min(100, (Number(dashboard.buffer_days) / 30) * 100)], ["Income steadiness", 70], ["Cash ups and downs", 75]].map(([label, value]) => <div key={label}><div className="flex justify-between text-xs font-bold text-[#52615C]"><span>{label}</span><span>{Math.round(value)}/100</span></div><div className="mt-2 h-2 rounded-full bg-[#DFE8E4]"><div className="h-full rounded-full bg-[#287B60]" style={{ width: `${value}%` }} /></div></div>)}</div></Card>
     </div>
   );
 }
 
-function SaveTab({ showToast }) {
-  const [income, setIncome] = useState(1200);
-  const [expenses, setExpenses] = useState(700);
-  const [buffer, setBuffer] = useState(200);
-  const [safeAmount, setSafeAmount] = useState(300);
-  const [style, setStyle] = useState("Smart Save");
+function SaveTab({ dashboard, showToast }) {
+  const [inflow, setInflow] = useState("");
+  const [result, setResult] = useState(null);
   const [loading, setLoading] = useState(false);
-
   const calculate = async () => {
     setLoading(true);
-    const adjustedExpenses = expenses + buffer;
     try {
-      const response = await apiFetch("/api/savings/calculate", {
-        method: "POST",
-        body: JSON.stringify({ dailyIncome: income, dailyExpenses: adjustedExpenses }),
-      });
-      if (!response.ok) throw new Error();
+      const response = await request("/api/savings/calculate", { method: "POST", body: JSON.stringify({ today_inflow: Number(inflow) }) });
       const data = await response.json();
-      setSafeAmount(data.safeToSave ?? 0);
-    } catch {
-      setSafeAmount(Math.max(0, (income - adjustedExpenses) * 0.8));
-      showToast("We calculated this on your phone while reconnecting.");
+      if (!response.ok) throw new Error(data.error || "We could not calculate that.");
+      setResult(data.safe_to_save);
+    } catch (error) {
+      showToast(error.message);
     } finally {
       setLoading(false);
     }
   };
-
   return (
     <div className="space-y-5">
-      <PageHeading eyebrow="Save" title="Build a cushion without missing a bill." copy="Pick an amount that fits today. If money gets tight, your plan pauses automatically." />
-      <Card className="bg-[#0F4135] text-white">
-        <div className="flex items-end justify-between gap-3">
-          <div><p className="text-xs font-bold text-[#B7D5CB]">Emergency goal</p><strong className="mt-2 block text-3xl tracking-[-0.05em]">₹3,400 <span className="text-base font-medium text-[#A7C7BC]">/ ₹5,000</span></strong></div>
-          <span className="text-sm font-bold text-[#CDE1DA]">68%</span>
-        </div>
-        <div className="mt-4 h-3 overflow-hidden rounded-full bg-white/15"><div className="h-full w-[68%] rounded-full bg-[#70C49D]" /></div>
-        <p className="mt-3 text-xs text-[#A7C7BC]">₹1,600 more gives you a stronger emergency cushion.</p>
-      </Card>
+      <div><p className="text-[10px] font-bold uppercase tracking-[0.17em] text-[#63776F]">Save</p><h1 className="mt-2 text-3xl font-bold tracking-[-0.055em] text-[#18231F]">What can I safely save today?</h1><p className="mt-2 text-sm text-[#6E7B76]">Tell us what came in today. We’ll protect your daily bill cost first.</p></div>
       <div className="grid gap-5 lg:grid-cols-[1.1fr_.9fr]">
         <Card>
-          <SectionTitle label="Safe-to-save calculator" title="What can I save today?" />
-          <div className="grid gap-3 sm:grid-cols-3">
-            {[
-              ["Daily income", income, setIncome],
-              ["Expenses", expenses, setExpenses],
-              ["Safety buffer", buffer, setBuffer],
-            ].map(([label, value, setter]) => (
-              <label key={label} className="text-xs font-bold text-[#52615C]">
-                {label}
-                <div className="relative mt-2">
-                  <span className="absolute left-3 top-3 text-[#71807A]">₹</span>
-                  <input type="number" min="0" value={value} onChange={(event) => setter(Number(event.target.value))} className="focus-ring w-full [appearance:textfield] rounded-xl border border-[#DDE4E0] bg-[#FAFBFA] py-3 pl-7 pr-3 text-sm font-bold text-[#26332E] outline-none [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none" />
-                </div>
-              </label>
-            ))}
-          </div>
-          <div className="mt-5 rounded-2xl bg-[#EAF5EF] p-4">
-            <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-[#5D7B70]">Safe daily saving</p>
-            <div className="mt-1 flex items-end justify-between gap-3">
-              <strong className="text-4xl tracking-[-0.07em] text-[#17634D]">{money(safeAmount)}</strong>
-              <button onClick={calculate} disabled={loading} className="focus-ring rounded-xl bg-[#0F4135] px-4 py-2.5 text-xs font-bold text-white disabled:opacity-50">{loading ? "Checking..." : "Calculate"}</button>
-            </div>
-            <p className="mt-2 text-xs text-[#60776E]">Income − expenses − safety buffer, with extra room left in your account.</p>
-          </div>
+          <label className="text-sm font-bold text-[#42514B]">Money received today<div className="relative mt-2"><span className="absolute left-4 top-4 text-lg font-bold text-[#67766F]">₹</span><input type="number" min="0" value={inflow} onChange={(event) => setInflow(event.target.value)} placeholder="1,200" className="focus-ring w-full [appearance:textfield] rounded-2xl border border-[#D9E1DD] py-4 pl-10 pr-4 text-2xl font-bold outline-none [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none" /></div></label>
+          <div className="mt-4 rounded-2xl bg-[#F3F6F4] p-4 text-sm text-[#607069]">Your saved daily bill cost: <strong>{money(dashboard.daily_burn_rate)}</strong></div>
+          <PrimaryButton onClick={calculate} disabled={!inflow || loading} className="mt-5">{loading ? "Checking..." : "Show my safe amount"}</PrimaryButton>
         </Card>
-        <Card>
-          <SectionTitle label="Saving style" title="Choose what feels easiest" />
-          <div className="space-y-2">
-            {[
-              ["Round-up spare change", "Save the small difference after each spend."],
-              ["% of Income", "Save the same share whenever you get paid."],
-              ["Smart Save", "Let your amount adjust when earnings change."],
-            ].map(([name, copy]) => (
-              <button key={name} onClick={() => setStyle(name)} className={cx("focus-ring flex w-full items-start gap-3 rounded-2xl border p-3 text-left", style === name ? "border-[#87B6A6] bg-[#EDF7F2]" : "border-[#E4E9E6]")}>
-                <span className={cx("mt-0.5 grid h-5 w-5 shrink-0 place-items-center rounded-full border", style === name ? "border-[#1F7259] bg-[#1F7259] text-white" : "border-[#B8C3BE]")}>{style === name && <Check size={12} />}</span>
-                <span><strong className="block text-sm text-[#35443E]">{name}</strong><span className="mt-1 block text-xs leading-5 text-[#74817C]">{copy}</span></span>
-              </button>
-            ))}
-          </div>
-          <div className="mt-4 flex gap-2 rounded-2xl bg-[#FFF7E6] p-3 text-xs leading-5 text-[#785819]"><ShieldCheck className="mt-0.5 shrink-0" size={16} /> If cash gets low, savings pause automatically to protect your bill money.</div>
+        <Card className="bg-[#EAF5EF]">
+          <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-[#5E796F]">Safe to save</p>
+          <strong className="mt-3 block text-5xl tracking-[-0.075em] text-[#17634D]">{result === null ? "—" : money(result)}</strong>
+          <p className="mt-3 text-sm leading-6 text-[#5E746B]">{result === null ? "Enter today’s income to see an amount." : "This leaves room for your usual daily costs and an extra safety margin."}</p>
+          {result > 0 && <button onClick={() => showToast(`${money(result)} added to your saving plan.`)} className="focus-ring mt-6 rounded-2xl bg-[#0F4135] px-5 py-3 text-sm font-bold text-white">Save this amount</button>}
         </Card>
       </div>
     </div>
   );
 }
 
-function CreditTab({ showToast }) {
-  const [purpose, setPurpose] = useState("Vehicle repair");
-  const [amount, setAmount] = useState(3000);
-  const [checked, setChecked] = useState(false);
-  const affordable = amount <= 4000;
-  const saferAmount = Math.min(3500, Math.round(amount * 0.7 / 100) * 100);
-
+function CreditTab({ dashboard, showToast }) {
+  const [amount, setAmount] = useState("");
+  const capacity = Math.max(0, (Number(dashboard.profile?.avg_daily_income) || 0) * 5 - Number(dashboard.monthly_essential_expenses || 0) / 4);
+  const safe = Number(amount) > 0 && Number(amount) <= Math.max(3000, capacity);
   return (
     <div className="space-y-5">
-      <PageHeading eyebrow="Credit" title="Borrow safely, not hopefully." copy="We check the repayment against your real bill money before showing a plan." />
-      <div className="grid gap-5 lg:grid-cols-[.9fr_1.1fr]">
-        <Card>
-          <SectionTitle label="Start here" title="What do you need help with?" />
-          <div className="flex flex-wrap gap-2">
-            {["Vehicle repair", "Medical", "Bridge to next income"].map((item) => (
-              <button key={item} onClick={() => { setPurpose(item); setChecked(false); }} className={cx("focus-ring rounded-xl border px-3 py-2.5 text-xs font-bold", purpose === item ? "border-[#0F4135] bg-[#0F4135] text-white" : "border-[#DDE4E0] text-[#56645F]")}>{item}</button>
-            ))}
-          </div>
-          <label className="mt-5 block text-xs font-bold text-[#52615C]">
-            Requested amount
-            <div className="relative mt-2">
-              <span className="absolute left-3 top-3 text-[#71807A]">₹</span>
-              <input type="number" min="500" value={amount} onChange={(event) => { setAmount(Number(event.target.value)); setChecked(false); }} className="focus-ring w-full [appearance:textfield] rounded-xl border border-[#DDE4E0] bg-[#FAFBFA] py-3 pl-7 pr-3 text-lg font-bold text-[#26332E] outline-none [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none" />
-            </div>
-          </label>
-          <div className="mt-5 rounded-2xl bg-[#F5F7F6] p-4">
-            <div className="flex justify-between text-xs text-[#68766F]"><span>Average income</span><strong>₹18,000</strong></div>
-            <div className="mt-2 flex justify-between text-xs text-[#68766F]"><span>Essential expenses</span><strong>₹12,000</strong></div>
-            <div className="mt-3 border-t border-[#E0E6E2] pt-3 flex justify-between text-sm font-bold text-[#285D4B]"><span>Repayment capacity</span><span>₹6,000</span></div>
-          </div>
-          <button onClick={() => setChecked(true)} className="focus-ring mt-5 w-full rounded-xl bg-[#0F4135] py-3 text-sm font-bold text-white">Check what is safe</button>
-        </Card>
-        <Card className={checked && !affordable ? "border-[#F0D49E] bg-[#FFFDF8]" : ""}>
-          {!checked ? (
-            <div className="flex min-h-72 flex-col items-center justify-center text-center">
-              <span className="rounded-2xl bg-[#EAF4EF] p-4 text-[#216A53]"><ShieldCheck size={28} /></span>
-              <h2 className="mt-4 text-xl font-bold text-[#2D3935]">Your safe plan will appear here.</h2>
-              <p className="mt-2 max-w-sm text-sm leading-6 text-[#71807A]">We’ll protect your next bills before suggesting any repayment.</p>
-            </div>
-          ) : affordable ? (
-            <div className="animate-float-in">
-              <Badge tone="green"><Check size={12} /> This fits your safety limit</Badge>
-              <h2 className="mt-4 text-3xl font-bold tracking-[-0.055em] text-[#173F33]">{money(amount)} over 6 weeks</h2>
-              <p className="mt-2 text-sm leading-6 text-[#68766F]">For {purpose.toLowerCase()}, this plan keeps your bills covered and stays below your ₹4,000 limit.</p>
-              <div className="mt-5 grid grid-cols-2 gap-3">
-                <div className="rounded-2xl bg-[#EDF6F2] p-4"><span className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#688076]">Weekly payment</span><strong className="mt-2 block text-2xl text-[#1B654E]">{money(amount / 6)}</strong></div>
-                <div className="rounded-2xl bg-[#F5F7F6] p-4"><span className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#71807A]">Bill buffer after</span><strong className="mt-2 block text-2xl text-[#34443E]">10 days</strong></div>
-              </div>
-              <button onClick={() => showToast("Safe borrowing plan saved. No loan was taken.")} className="focus-ring mt-6 rounded-xl bg-[#0F4135] px-5 py-3 text-sm font-bold text-white">Save this plan</button>
-            </div>
-          ) : (
-            <div className="animate-float-in">
-              <Badge tone="amber"><AlertTriangle size={12} /> Safety limit</Badge>
-              <h2 className="mt-4 text-3xl font-bold tracking-[-0.055em] text-[#5F4311]">This amount is too high right now.</h2>
-              <p className="mt-3 text-sm leading-6 text-[#75654A]">It takes too much of your cash and drops your bill buffer below 7 days. We won’t call that affordable.</p>
-              <div className="mt-5 rounded-2xl bg-[#FFF4D8] p-4"><span className="text-xs font-bold text-[#805A12]">A safer amount</span><strong className="mt-1 block text-3xl text-[#704C0A]">{money(saferAmount)}</strong><p className="mt-1 text-xs text-[#816B42]">This keeps more room for rent, electricity and food.</p></div>
-              <button onClick={() => { setAmount(saferAmount); setChecked(true); }} className="focus-ring mt-6 rounded-xl bg-[#8C620E] px-5 py-3 text-sm font-bold text-white">Use safer amount</button>
-            </div>
-          )}
-        </Card>
+      <div><p className="text-[10px] font-bold uppercase tracking-[0.17em] text-[#63776F]">Credit</p><h1 className="mt-2 text-3xl font-bold tracking-[-0.055em] text-[#18231F]">Borrow safely.</h1><p className="mt-2 text-sm text-[#6E7B76]">Check an amount before it cuts into your bill money.</p></div>
+      <div className="grid gap-5 lg:grid-cols-2">
+        <Card><label className="text-sm font-bold text-[#42514B]">Amount you are thinking about<div className="relative mt-2"><span className="absolute left-4 top-4 text-lg font-bold text-[#67766F]">₹</span><input type="number" min="0" value={amount} onChange={(event) => setAmount(event.target.value)} placeholder="3,000" className="focus-ring w-full [appearance:textfield] rounded-2xl border border-[#D9E1DD] py-4 pl-10 pr-4 text-2xl font-bold outline-none [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none" /></div></label><p className="mt-4 rounded-2xl bg-[#F3F6F4] p-4 text-sm text-[#607069]">Estimated repayment room: <strong>{money(Math.max(3000, capacity))}</strong></p></Card>
+        <Card className={amount && !safe ? "border-[#EFCF91] bg-[#FFFDF8]" : ""}>{!amount ? <p className="flex min-h-32 items-center justify-center text-center text-sm text-[#71807A]">Enter an amount to see whether it fits.</p> : safe ? <div><span className="inline-flex items-center gap-1 rounded-full bg-[#DFF1E8] px-3 py-1 text-xs font-bold text-[#21654F]"><Check size={13} /> Looks manageable</span><h2 className="mt-4 text-2xl font-bold text-[#173E32]">{money(amount)} can fit your current plan.</h2><button onClick={() => showToast("Borrowing plan saved. No loan was taken.")} className="focus-ring mt-5 rounded-2xl bg-[#0F4135] px-5 py-3 text-sm font-bold text-white">Save this plan</button></div> : <div><span className="inline-flex items-center gap-1 rounded-full bg-[#FFF0CF] px-3 py-1 text-xs font-bold text-[#80570C]"><AlertTriangle size={13} /> Too much right now</span><h2 className="mt-4 text-2xl font-bold text-[#5B4114]">This could leave too little for bills.</h2><p className="mt-2 text-sm leading-6 text-[#75674D]">Try {money(Math.max(3000, capacity))} or less to keep a safer cushion.</p></div>}</Card>
       </div>
     </div>
   );
 }
 
-function GuidanceTab() {
+function GuidanceTab({ dashboard }) {
   const [mode, setMode] = useState("assistant");
-  const [messages, setMessages] = useState([
-    { from: "bot", text: "Hi Ravi. Ask me about saving, bills or borrowing. I’ll keep the answer simple." },
-  ]);
   const [weekly, setWeekly] = useState(200);
-  const answers = {
-    "Can I save ₹500 today?": "₹500 would make this week a little tight. ₹300 is safer because it keeps your rent and electricity money protected.",
-    "Can I afford this loan?": "A ₹3,000 plan looks manageable over 6 weeks. Anything above ₹4,000 would cut too far into your bill cushion.",
-    "Why is my score 68?": "Your income has been fairly steady and you have 12 days of bills covered. A few lower-income days are keeping the score from rising faster.",
-  };
-  const ask = (question) =>
-    setMessages((current) => [...current, { from: "user", text: question }, { from: "bot", text: answers[question] }]);
-  const projectedSavings = 3400 + weekly * 4;
-  const projectedDays = 12 + Math.round(weekly / 100);
-  const projectedScore = Math.min(100, 68 + Math.round(weekly / 80));
-
+  const [messages, setMessages] = useState([{ from: "bot", text: "Ask me about saving, bills, or a slower work week." }]);
+  const ask = (text) => setMessages((current) => [...current, { from: "user", text }, { from: "bot", text: `Based on your ${Number(dashboard.buffer_days || 0).toFixed(0)}-day bill cushion, keep the next step small and leave your essential money untouched.` }]);
   return (
     <div className="space-y-5">
-      <PageHeading eyebrow="Guidance" title="A calm second opinion." copy="Ask a simple question or test a plan before you act." />
-      <div className="mx-auto grid max-w-lg grid-cols-2 rounded-2xl border border-[#DDE5E1] bg-white p-1.5 shadow-sm">
-        <button onClick={() => setMode("assistant")} className={cx("focus-ring flex items-center justify-center gap-2 rounded-xl px-3 py-2.5 text-xs font-bold transition-colors", mode === "assistant" ? "bg-[#0F4135] text-white" : "text-[#61716B]")}><Bot size={15} /> AI Assistant</button>
-        <button onClick={() => setMode("simulator")} className={cx("focus-ring flex items-center justify-center gap-2 rounded-xl px-3 py-2.5 text-xs font-bold transition-colors", mode === "simulator" ? "bg-[#0F4135] text-white" : "text-[#61716B]")}><SlidersHorizontal size={15} /> What-If Simulator</button>
-      </div>
-
-      <div className={mode === "assistant" ? "block" : "hidden"}>
-        <Card className="mx-auto max-w-3xl overflow-hidden p-0 sm:p-0">
-          <div className="flex items-center gap-3 border-b border-[#E8ECEA] bg-[#F1F7F4] px-5 py-4">
-            <span className="rounded-xl bg-[#DCEEE6] p-2 text-[#246B54]"><Bot size={19} /></span>
-            <div><strong className="block text-sm text-[#29463C]">Resilient Assistant</strong><span className="text-[11px] text-[#71867D]">Answers based on your current plan</span></div>
-          </div>
-          <div className="min-h-80 space-y-3 bg-[#FBFCFB] p-5">
-            {messages.map((message, index) => (
-              <div key={index} className={cx("flex", message.from === "user" ? "justify-end" : "justify-start")}>
-                <p className={cx("max-w-[85%] rounded-2xl px-4 py-3 text-sm leading-6", message.from === "user" ? "rounded-br-md bg-[#0F4135] text-white" : "rounded-bl-md border border-[#E2E9E5] bg-white text-[#53635D]")}>{message.text}</p>
-              </div>
-            ))}
-          </div>
-          <div className="border-t border-[#E8ECEA] p-4">
-            <p className="mb-2 text-[10px] font-bold uppercase tracking-[0.15em] text-[#7B8984]">Tap a question</p>
-            <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hidden">
-              {Object.keys(answers).map((question) => <button key={question} onClick={() => ask(question)} className="focus-ring shrink-0 rounded-xl border border-[#DDE5E1] bg-white px-3 py-2.5 text-xs font-bold text-[#40564D]">{question}</button>)}
-            </div>
-          </div>
-        </Card>
-      </div>
-
-      <div className={mode === "simulator" ? "block" : "hidden"}>
-        <Card className="mx-auto max-w-3xl">
-          <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-start">
-            <div><Badge tone="blue"><RefreshCw size={12} /> This is only a test</Badge><h2 className="mt-3 text-2xl font-bold tracking-[-0.04em] text-[#293631]">What if I save {money(weekly)} each week?</h2><p className="mt-1 text-sm text-[#6E7B76]">Move the slider. No real money moves.</p></div>
-            <span className="rounded-2xl bg-[#EAF5EF] p-3 text-[#246B54]"><SlidersHorizontal size={22} /></span>
-          </div>
-          <div className="mt-7">
-            <div className="flex justify-between text-xs font-bold text-[#4C5D56]"><span>Weekly saving</span><span className="min-w-20 text-right tabular-nums">{money(weekly)}</span></div>
-            <input type="range" min="50" max="500" step="50" value={weekly} onChange={(event) => setWeekly(Number(event.target.value))} className="mt-5 w-full accent-[#0F4135]" />
-            <div className="mt-2 flex justify-between text-[10px] text-[#83908B]"><span>₹50</span><span>₹500</span></div>
-          </div>
-          <div className="mt-7 grid gap-3 sm:grid-cols-3">
-            {[
-              ["Emergency savings", money(projectedSavings), "₹3,400 today"],
-              ["Buffer days", `${projectedDays} days`, "12 days today"],
-              ["Resilience score", `${projectedScore}/100`, "68 today"],
-            ].map(([label, value, before]) => (
-              <div key={label} className="min-h-32 rounded-2xl bg-[#F1F7F4] p-4">
-                <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#667C73]">{label}</p>
-                <strong className="mt-3 block text-2xl tabular-nums text-[#17614C]">{value}</strong>
-                <span className="mt-1 block text-[11px] text-[#7C8984]">{before}</span>
-              </div>
-            ))}
-          </div>
-        </Card>
-      </div>
+      <div><p className="text-[10px] font-bold uppercase tracking-[0.17em] text-[#63776F]">Guidance</p><h1 className="mt-2 text-3xl font-bold tracking-[-0.055em] text-[#18231F]">A calm second opinion.</h1></div>
+      <div className="mx-auto grid max-w-lg grid-cols-2 rounded-2xl border border-[#DDE5E1] bg-white p-1.5"><button onClick={() => setMode("assistant")} className={cx("focus-ring flex items-center justify-center gap-2 rounded-xl py-2.5 text-xs font-bold", mode === "assistant" ? "bg-[#0F4135] text-white" : "text-[#687771]")}><Bot size={15} /> Ask a question</button><button onClick={() => setMode("simulator")} className={cx("focus-ring flex items-center justify-center gap-2 rounded-xl py-2.5 text-xs font-bold", mode === "simulator" ? "bg-[#0F4135] text-white" : "text-[#687771]")}><SlidersHorizontal size={15} /> Try a plan</button></div>
+      <div className={mode === "assistant" ? "block" : "hidden"}><Card className="mx-auto max-w-3xl"><div className="min-h-72 space-y-3">{messages.map((message, index) => <div key={index} className={cx("flex", message.from === "user" ? "justify-end" : "justify-start")}><p className={cx("max-w-[85%] rounded-2xl px-4 py-3 text-sm leading-6", message.from === "user" ? "rounded-br-md bg-[#0F4135] text-white" : "rounded-bl-md bg-[#F1F6F3] text-[#53635D]")}>{message.text}</p></div>)}</div><div className="flex gap-2 overflow-x-auto border-t border-[#E5EAE7] pt-4 scrollbar-hidden">{["Can I save today?", "Can I afford a loan?", "What if work is slow?"].map((prompt) => <button key={prompt} onClick={() => ask(prompt)} className="focus-ring shrink-0 rounded-xl border border-[#DDE4E0] px-3 py-2 text-xs font-bold text-[#4C6057]">{prompt}</button>)}</div></Card></div>
+      <div className={mode === "simulator" ? "block" : "hidden"}><Card className="mx-auto max-w-3xl"><span className="inline-flex items-center gap-1 rounded-full bg-[#E9F1FF] px-3 py-1 text-xs font-bold text-[#385F94]"><RefreshCw size={12} /> This is only a test</span><h2 className="mt-4 text-2xl font-bold text-[#28352F]">What if I save {money(weekly)} each week?</h2><input type="range" min="50" max="500" step="50" value={weekly} onChange={(event) => setWeekly(Number(event.target.value))} className="mt-7 w-full accent-[#0F4135]" /><div className="mt-6 grid grid-cols-2 gap-3"><div className="rounded-2xl bg-[#EDF7F2] p-4"><span className="text-[10px] font-bold uppercase text-[#60786E]">New bill cushion</span><strong className="mt-2 block text-2xl text-[#17634D]">{Math.round(Number(dashboard.buffer_days || 0) + weekly / 100)} days</strong></div><div className="rounded-2xl bg-[#EDF7F2] p-4"><span className="text-[10px] font-bold uppercase text-[#60786E]">New score</span><strong className="mt-2 block text-2xl text-[#17634D]">{Math.min(100, Math.round(Number(dashboard.resilience_score || 0) + weekly / 80))}/100</strong></div></div></Card></div>
     </div>
   );
 }
 
-function Sheet({ title, icon: Icon, onClose, children }) {
+function Drawer({ title, icon: Icon, close, children }) {
   return (
     <div className="fixed inset-0 z-40 flex justify-end">
-      <button aria-label="Close" onClick={onClose} className="fixed inset-0 z-40 bg-black/40 backdrop-blur-sm" />
+      <button aria-label="Close" onClick={close} className="fixed inset-0 z-40 bg-black/40 backdrop-blur-sm" />
       <aside className="relative z-50 h-full w-full max-w-md overflow-y-auto bg-[#F8F9FA] p-5 shadow-2xl sm:p-7">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3"><span className="rounded-xl bg-[#E4F0EB] p-2 text-[#21664F]"><Icon size={18} /></span><h2 className="text-xl font-bold text-[#25312D]">{title}</h2></div>
-          <button aria-label="Close sheet" onClick={onClose} className="focus-ring rounded-xl border border-[#DFE5E2] bg-white p-2 text-[#5C6A65]"><X size={18} /></button>
-        </div>
+        <div className="flex items-center justify-between"><div className="flex items-center gap-3"><span className="rounded-xl bg-[#E5F0EB] p-2 text-[#21664F]"><Icon size={18} /></span><h2 className="text-xl font-bold text-[#293630]">{title}</h2></div><button onClick={close} className="focus-ring rounded-xl border border-[#DDE4E0] bg-white p-2"><X size={18} /></button></div>
         <div className="mt-6">{children}</div>
       </aside>
     </div>
   );
 }
 
-function ProfileSheet({ users, selectedId, selectUser, close }) {
+function DataDrawer({ close, onReset, resetting }) {
   return (
-    <Sheet title="Choose a profile" icon={ShieldCheck} onClose={close}>
-      <p className="mb-4 text-sm leading-6 text-[#66736F]">Switch between the 30 demo profiles to see how different income patterns affect the plan.</p>
-      <div className="space-y-2">
-        {users.map((user) => (
-          <button key={user.id} onClick={() => selectUser(user.id)} className={cx("focus-ring flex w-full items-center gap-3 rounded-2xl border p-3 text-left", selectedId === user.id ? "border-[#7DAE9E] bg-[#EAF5EF]" : "border-[#E2E7E4] bg-white")}>
-            <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-[#0F4135] text-sm font-bold text-white">{user.full_name.split(" ").map((part) => part[0]).join("").slice(0, 2)}</span>
-            <span className="min-w-0 flex-1"><strong className="block truncate text-sm text-[#34423D]">{user.full_name}</strong><span className="mt-0.5 block truncate text-xs text-[#74817C]">{user.role || "Gig Worker"}</span></span>
-            {selectedId === user.id && <Check size={17} className="text-[#17664E]" />}
-          </button>
-        ))}
-      </div>
-    </Sheet>
-  );
-}
-
-function DataSheet({ close, showToast }) {
-  const [accounts, setAccounts] = useState([
-    { name: "Primary bank account", detail: "Updated 5 minutes ago", shared: true },
-    { name: "Savings account", detail: "Updated yesterday", shared: true },
-  ]);
-  return (
-    <Sheet title="Data control" icon={LockKeyhole} onClose={close}>
-      <div className="rounded-2xl bg-[#EAF5EF] p-4 text-sm leading-6 text-[#49665B]"><LockKeyhole className="mr-1 inline text-[#17664E]" size={16} /> You choose what is shared. You can stop access at any time.</div>
-      <div className="mt-5 space-y-3">
-        {accounts.map((account, index) => (
-          <div key={account.name} className="rounded-2xl border border-[#E2E7E4] bg-white p-4">
-            <div className="flex items-center gap-3"><span className="rounded-xl bg-[#F1F5F3] p-2 text-[#466057]"><Database size={17} /></span><div className="flex-1"><strong className="block text-sm text-[#34423D]">{account.name}</strong><span className="text-xs text-[#78857F]">{account.shared ? account.detail : "Sharing stopped"}</span></div><span className={cx("h-2.5 w-2.5 rounded-full", account.shared ? "bg-[#4D9B76]" : "bg-[#C87A5C]")} /></div>
-            {account.shared && <button onClick={() => { setAccounts((current) => current.map((item, itemIndex) => itemIndex === index ? { ...item, shared: false } : item)); showToast("Sharing stopped for this account."); }} className="focus-ring mt-4 text-xs font-bold text-[#A04D32]">Stop sharing</button>}
-          </div>
-        ))}
-      </div>
-      <button onClick={() => showToast("Your data deletion request has started.")} className="focus-ring mt-7 flex w-full items-center gap-3 rounded-2xl border border-[#EECFC3] bg-[#FFF6F2] p-4 text-left"><Trash2 size={18} className="text-[#A84E32]" /><span><strong className="block text-sm text-[#8A432D]">Delete my data</strong><span className="mt-1 block text-xs text-[#966B5D]">Permanently remove your connected information.</span></span></button>
-    </Sheet>
-  );
-}
-
-function NotificationSheet({ close }) {
-  const [frequency, setFrequency] = useState("Balanced");
-  return (
-    <Sheet title="Notifications" icon={Bell} onClose={close}>
-      <SectionTitle label="Needs attention" title="Urgent" />
-      <div className="space-y-2">
-        <div className="rounded-2xl bg-[#FFF4D8] p-4"><div className="flex items-center gap-2 text-sm font-bold text-[#80580F]"><AlertTriangle size={16} /> Electricity is due in 3 days</div><p className="mt-1 text-xs text-[#8A744B]">₹850 is already included in your safe-to-spend amount.</p></div>
-        <div className="rounded-2xl bg-[#FFF8E9] p-4"><div className="flex items-center gap-2 text-sm font-bold text-[#80580F]"><CalendarDays size={16} /> Rent is due in 5 days</div><p className="mt-1 text-xs text-[#8A744B]">Keep ₹3,200 untouched for this bill.</p></div>
-      </div>
-      <div className="mt-6"><SectionTitle label="No action needed" title="Good to know" /></div>
-      <div className="rounded-2xl bg-[#EAF5EF] p-4"><div className="flex items-center gap-2 text-sm font-bold text-[#245F4B]"><ArrowUpRight size={16} /> You earned more this week</div><p className="mt-1 text-xs text-[#657B72]">That is why today’s safe saving rose to ₹300.</p></div>
+    <Drawer title="Data control" icon={LockKeyhole} close={close}>
+      <div className="rounded-2xl bg-[#EAF5EF] p-4 text-sm leading-6 text-[#516B61]"><ShieldCheck className="mr-1 inline text-[#17634D]" size={16} /> Your answers are used to build this plan. You can clear them whenever you want.</div>
+      <div className="mt-5 rounded-2xl border border-[#E0E6E3] bg-white p-4"><div className="flex items-center gap-3"><span className="rounded-xl bg-[#F1F5F3] p-2 text-[#536A60]"><Database size={17} /></span><div><strong className="block text-sm text-[#34423D]">Your onboarding answers</strong><span className="text-xs text-[#78857F]">Used for your active plan</span></div></div></div>
       <div className="mt-7 border-t border-[#E0E6E3] pt-6">
-        <p className="text-xs font-bold text-[#53625C]">How often should we remind you?</p>
-        <div className="mt-3 grid grid-cols-3 gap-2">
-          {["Quiet", "Balanced", "Helpful"].map((item) => <button key={item} onClick={() => setFrequency(item)} className={cx("focus-ring rounded-xl border py-2.5 text-xs font-bold", frequency === item ? "border-[#0F4135] bg-[#0F4135] text-white" : "border-[#DDE4E0] bg-white text-[#61706A]")}>{item}</button>)}
-        </div>
+        <h3 className="text-sm font-bold text-[#7B3F2B]">Start over</h3>
+        <p className="mt-2 text-xs leading-5 text-[#7A6B65]">This clears the active profile, bills, income pattern, and score. You’ll return to the name screen.</p>
+        <button onClick={onReset} disabled={resetting} className="focus-ring mt-4 flex w-full items-center justify-center gap-2 rounded-2xl border border-[#E8C8BC] bg-[#FFF5F1] px-4 py-3 text-sm font-bold text-[#994A30] disabled:opacity-50"><Trash2 size={16} />{resetting ? "Clearing..." : "Reset app / Onboard new user"}</button>
       </div>
-    </Sheet>
+    </Drawer>
   );
 }
 
-function WhyModal({ close }) {
-  return (
-    <div className="fixed inset-0 z-40 grid place-items-center p-4">
-      <button aria-label="Close explanation" onClick={close} className="fixed inset-0 z-40 bg-black/40 backdrop-blur-sm" />
-      <div className="relative z-50 w-full max-w-md rounded-[26px] bg-white p-6 shadow-2xl">
-        <div className="flex items-center justify-between"><h2 className="text-xl font-bold text-[#293630]">Why ₹300?</h2><button onClick={close} className="focus-ring rounded-xl border border-[#DFE5E2] p-2"><X size={17} /></button></div>
-        <p className="mt-3 text-sm leading-6 text-[#63716C]">We start with today’s income, protect your expenses and keep a safety buffer.</p>
-        <div className="mt-5 space-y-2 rounded-2xl bg-[#F6F8F7] p-4 text-sm">
-          <div className="flex justify-between"><span>Today’s income</span><strong className="text-[#17664E]">₹1,200</strong></div>
-          <div className="flex justify-between"><span>Expenses</span><strong>− ₹700</strong></div>
-          <div className="flex justify-between"><span>Safety buffer</span><strong>− ₹200</strong></div>
-          <div className="flex justify-between border-t border-[#DDE4E0] pt-3 text-base"><strong>Safe to save</strong><strong className="text-[#17664E]">₹300</strong></div>
-        </div>
-        <p className="mt-4 flex gap-2 text-xs leading-5 text-[#6A7973]"><Info className="mt-0.5 shrink-0" size={14} /> If your income or bills change, this amount changes too.</p>
-      </div>
-    </div>
-  );
+function NotificationsDrawer({ close }) {
+  return <Drawer title="Notifications" icon={Bell} close={close}><div className="rounded-2xl bg-[#FFF4D8] p-4"><strong className="flex items-center gap-2 text-sm text-[#80580F]"><AlertTriangle size={16} /> Your next bill is coming up</strong><p className="mt-2 text-xs leading-5 text-[#816E49]">Open Home to see what is due and how much is already protected.</p></div><div className="mt-3 rounded-2xl bg-[#EAF5EF] p-4"><strong className="flex items-center gap-2 text-sm text-[#245F4B]"><TrendingUp size={16} /> Your plan updates as income changes</strong><p className="mt-2 text-xs leading-5 text-[#647A71]">We’ll keep suggestions small when work is slower.</p></div></Drawer>;
 }
 
-function ScoreExplanation({ close }) {
-  return (
-    <Sheet title="What your score means" icon={Gauge} onClose={close}>
-      <p className="text-sm leading-6 text-[#64736D]">Your score is not a grade. It is a quick way to see how much room your money has when work is slow or a surprise bill arrives.</p>
-      <div className="mt-5 space-y-3">
-        {[
-          ["Income steadiness", "Are earnings arriving regularly?"],
-          ["Savings balance", "How much emergency money is ready?"],
-          ["Cash ups and downs", "How sharply does your balance change?"],
-        ].map(([title, copy]) => <div key={title} className="rounded-2xl bg-white p-4"><strong className="text-sm text-[#34423D]">{title}</strong><p className="mt-1 text-xs leading-5 text-[#74817C]">{copy}</p></div>)}
-      </div>
-    </Sheet>
-  );
-}
-
-function SystemLoop() {
-  const steps = ["Income received", "Cash flow calculated", "Safety check", "App updated"];
-  return (
-    <div className="rounded-2xl border border-[#E1E8E4] bg-[#F1F6F3] p-4">
-      <p className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.16em] text-[#687B73]"><ShieldCheck size={13} /> Quiet checks in the background</p>
-      <div className="mt-3 flex items-center gap-2 overflow-x-auto scrollbar-hidden">
-        {steps.map((step, index) => <div key={step} className="flex shrink-0 items-center gap-2">{index > 0 && <ArrowRight size={13} className="text-[#9AA9A3]" />}<span className="rounded-lg bg-white px-3 py-2 text-[11px] font-bold text-[#52665E]">{step}</span></div>)}
-      </div>
-    </div>
-  );
-}
-
-export default function App() {
-  const [users, setUsers] = useState(demoUsers);
-  const [selectedId, setSelectedId] = useState(demoUsers[0].id);
-  const [dashboard, setDashboard] = useState(demoDashboard(demoUsers[0]));
+function MainApp({ dashboard, setDashboard, onRequireOnboarding }) {
   const [tab, setTab] = useState("home");
-  const [sheet, setSheet] = useState(null);
-  const [modal, setModal] = useState(null);
+  const [drawer, setDrawer] = useState(null);
   const [toast, setToast] = useState("");
-  const [loading, setLoading] = useState(false);
-  const selectedUser = useMemo(() => users.find((user) => user.id === selectedId) || demoUsers[0], [users, selectedId]);
-
-  useEffect(() => {
-    if (!getToken()) return;
-    apiFetch("/api/users")
-      .then((response) => {
-        if (!response.ok) throw new Error();
-        return response.json();
-      })
-      .then((data) => {
-        if (Array.isArray(data) && data.length) {
-          setUsers(data.map((user, index) => ({ ...user, role: user.role || people[index % people.length][1] })));
-          setSelectedId(data[0].id);
-        }
-      })
-      .catch(() => {});
-  }, []);
-
-  useEffect(() => {
-    if (!selectedId) return;
-    setLoading(true);
-    if (!getToken()) {
-      setDashboard(demoDashboard(selectedUser));
-      setLoading(false);
-      return;
-    }
-    apiFetch(`/api/dashboard/${encodeURIComponent(selectedId)}`)
-      .then((response) => {
-        if (!response.ok) throw new Error();
-        return response.json();
-      })
-      .then(setDashboard)
-      .catch(() => setDashboard(demoDashboard(selectedUser)))
-      .finally(() => setLoading(false));
-  }, [selectedId]);
+  const [resetting, setResetting] = useState(false);
+  const name = dashboard.profile?.full_name || "there";
 
   useEffect(() => {
     if (!toast) return undefined;
@@ -730,63 +505,147 @@ export default function App() {
     return () => window.clearTimeout(timer);
   }, [toast]);
 
-  const chooseUser = (id) => {
-    setSelectedId(id);
-    setSheet(null);
-    setToast("Profile switched.");
+  const reset = async () => {
+    setResetting(true);
+    try {
+      const response = await request("/api/users/reset", { method: "POST" });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "We could not reset the app.");
+      window.localStorage.removeItem(ONBOARDING_MARKER);
+      setDashboard(null);
+      setDrawer(null);
+      onRequireOnboarding();
+    } catch (error) {
+      setToast(error.message);
+      setResetting(false);
+    }
   };
 
-  const tabContent = {
-    home: <HomeTab dashboard={dashboard} user={selectedUser} showToast={setToast} setTab={setTab} openWhy={() => setModal("why")} />,
-    resilience: <ResilienceTab dashboard={dashboard} openExplanation={() => setSheet("score")} />,
-    save: <SaveTab showToast={setToast} />,
-    credit: <CreditTab showToast={setToast} />,
-    guidance: <GuidanceTab />,
+  const content = {
+    home: <HomeTab dashboard={dashboard} name={name} setTab={setTab} showToast={setToast} />,
+    resilience: <ResilienceTab dashboard={dashboard} />,
+    save: <SaveTab dashboard={dashboard} showToast={setToast} />,
+    credit: <CreditTab dashboard={dashboard} showToast={setToast} />,
+    guidance: <GuidanceTab dashboard={dashboard} />,
   }[tab];
 
   return (
-    <div className="min-h-screen bg-[#F8F9FA] text-[#222A27]">
+    <div className="min-h-screen bg-[#F8F9FA]">
       <header className="sticky top-0 z-30 border-b border-[#E4E9E6] bg-[#F8F9FA]/95 backdrop-blur-md">
-        <div className="mx-auto flex max-w-6xl items-center gap-2 px-4 py-3 sm:px-6">
-          <button onClick={() => setTab("home")} className="focus-ring mr-auto flex items-center gap-2 text-left">
-            <span className="relative grid h-10 w-10 place-items-center rounded-xl bg-[#0F4135] text-white"><ShieldCheck size={21} /><Leaf size={10} className="absolute right-1.5 top-1.5 text-[#8DD0AF]" /></span>
-            <span className="hidden sm:block"><strong className="block text-sm tracking-[-0.03em] text-[#0F4135]">ResilientBank</strong><span className="text-[9px] font-bold uppercase tracking-[0.14em] text-[#78857F]">Steady money, one day at a time</span></span>
-          </button>
-          <button aria-label="Data control" onClick={() => setSheet("data")} className="focus-ring grid h-10 w-10 place-items-center rounded-xl border border-[#DFE5E2] bg-white text-[#466057]"><LockKeyhole size={17} /></button>
-          <button aria-label="Notifications" onClick={() => setSheet("notifications")} className="focus-ring relative grid h-10 w-10 place-items-center rounded-xl border border-[#DFE5E2] bg-white text-[#466057]"><Bell size={17} /><span className="absolute right-2 top-2 h-2 w-2 rounded-full border-2 border-white bg-[#D39424]" /></button>
-          <button onClick={() => setSheet("profiles")} className="focus-ring flex min-w-0 items-center gap-2 rounded-xl border border-[#DDE4E0] bg-white px-2.5 py-2 text-left sm:px-3">
-            <span className="grid h-6 w-6 shrink-0 place-items-center rounded-lg bg-[#E6F1EC] text-[10px] font-bold text-[#1F6A52]">{selectedUser.full_name.split(" ").map((part) => part[0]).join("").slice(0, 2)}</span>
-            <span className="hidden min-w-0 sm:block"><strong className="block max-w-36 truncate text-xs text-[#34423D]">{selectedUser.full_name}</strong><span className="block max-w-36 truncate text-[10px] text-[#77847F]">{selectedUser.role || "Gig Worker"}</span></span>
-            <ChevronDown size={13} className="text-[#77847F]" />
-          </button>
-        </div>
-        <button onClick={() => setSheet("profiles")} className="focus-ring flex w-full items-center justify-center gap-1 border-t border-[#E7EBE9] py-2 text-xs font-bold text-[#42564E] sm:hidden">{selectedUser.full_name} <span className="font-medium text-[#7A8782]">• {selectedUser.role || "Gig Worker"}</span><ChevronDown size={13} /></button>
+        <div className="mx-auto flex max-w-6xl items-center gap-2 px-4 py-3 sm:px-6"><button onClick={() => setTab("home")} className="focus-ring mr-auto"><Brand /></button><button aria-label="Data control" onClick={() => setDrawer("data")} className="focus-ring grid h-10 w-10 place-items-center rounded-xl border border-[#DDE4E0] bg-white text-[#536A60]"><LockKeyhole size={17} /></button><button aria-label="Notifications" onClick={() => setDrawer("notifications")} className="focus-ring grid h-10 w-10 place-items-center rounded-xl border border-[#DDE4E0] bg-white text-[#536A60]"><Bell size={17} /></button><div className="hidden rounded-xl border border-[#DDE4E0] bg-white px-3 py-2 sm:block"><strong className="block max-w-40 truncate text-xs text-[#34423D]">{name}</strong><span className="block max-w-40 truncate text-[10px] text-[#78857F]">{dashboard.profile?.work_type || "Independent worker"}</span></div></div>
       </header>
-
-      {loading && <div className="fixed left-0 right-0 top-[65px] z-20 h-0.5 overflow-hidden bg-[#DCE9E4]"><div className="h-full w-1/2 animate-pulse rounded-full bg-[#1F7159]" /></div>}
-
-      <main className="mx-auto max-w-6xl space-y-5 px-4 py-5 pb-32 sm:px-6 sm:py-7 sm:pb-32">
-        {tabContent}
-        <SystemLoop />
-      </main>
-
-      <nav className="fixed inset-x-0 bottom-0 z-30 border-t border-[#DFE5E2] bg-white/95 pb-[max(.5rem,env(safe-area-inset-bottom))] pt-2 backdrop-blur-lg">
-        <div className="mx-auto flex max-w-xl justify-around px-2">
-          {tabs.map(({ id, label, icon: Icon }) => (
-            <button key={id} onClick={() => setTab(id)} className={cx("focus-ring flex min-w-14 flex-col items-center gap-1 rounded-xl px-2 py-1.5 text-[10px] font-bold transition-colors", tab === id ? "bg-[#E9F3EE] text-[#0F5D47]" : "text-[#7A8782]")}>
-              <Icon size={19} strokeWidth={tab === id ? 2.5 : 1.8} />
-              {label}
-            </button>
-          ))}
-        </div>
-      </nav>
-
-      {sheet === "profiles" && <ProfileSheet users={users} selectedId={selectedId} selectUser={chooseUser} close={() => setSheet(null)} />}
-      {sheet === "data" && <DataSheet close={() => setSheet(null)} showToast={setToast} />}
-      {sheet === "notifications" && <NotificationSheet close={() => setSheet(null)} />}
-      {sheet === "score" && <ScoreExplanation close={() => setSheet(null)} />}
-      {modal === "why" && <WhyModal close={() => setModal(null)} />}
-      {toast && <div className="pointer-events-none fixed top-16 left-1/2 z-50 flex max-w-[calc(100%-2rem)] -translate-x-1/2 items-center gap-2 rounded-xl bg-[#0F4135] px-4 py-3 text-xs font-bold whitespace-nowrap text-white shadow-xl"><Check size={15} className="text-[#A9D7C5]" />{toast}</div>}
+      <main className="mx-auto max-w-6xl px-4 py-5 pb-32 sm:px-6 sm:py-7 sm:pb-32">{content}</main>
+      <nav className="fixed inset-x-0 bottom-0 z-30 border-t border-[#DFE5E2] bg-white/95 pb-[max(.5rem,env(safe-area-inset-bottom))] pt-2 backdrop-blur-lg"><div className="mx-auto flex max-w-xl justify-around px-2">{tabs.map(({ id, label, icon: Icon }) => <button key={id} onClick={() => setTab(id)} className={cx("focus-ring flex min-w-14 flex-col items-center gap-1 rounded-xl px-2 py-1.5 text-[10px] font-bold", tab === id ? "bg-[#E9F3EE] text-[#0F5D47]" : "text-[#7A8782]")}><Icon size={19} strokeWidth={tab === id ? 2.5 : 1.8} />{label}</button>)}</div></nav>
+      {drawer === "data" && <DataDrawer close={() => setDrawer(null)} onReset={reset} resetting={resetting} />}
+      {drawer === "notifications" && <NotificationsDrawer close={() => setDrawer(null)} />}
+      {toast && <div className="pointer-events-none fixed top-16 left-1/2 z-50 flex max-w-[calc(100%-2rem)] -translate-x-1/2 items-center gap-2 rounded-xl bg-[#0F4135] px-4 py-3 text-xs font-bold whitespace-nowrap text-white shadow-xl"><Check size={15} />{toast}</div>}
     </div>
   );
+}
+
+export default function App() {
+  const [checking, setChecking] = useState(true);
+  const [dashboard, setDashboard] = useState(null);
+  const [stage, setStage] = useState(1);
+  const [identity, setIdentity] = useState({ full_name: "", work_type: "" });
+  const [terms, setTerms] = useState(false);
+  const [consent, setConsent] = useState({ income: true, expenses: true, savings: true });
+  const [answers, setAnswers] = useState(initialAnswers);
+  const [questionIndex, setQuestionIndex] = useState(0);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState("");
+
+  const checkActiveDashboard = async () => {
+    setChecking(true);
+    try {
+      const response = await request("/api/dashboard/active");
+      const data = await response.json();
+      const localOnboardingExists = window.localStorage.getItem(ONBOARDING_MARKER) === "true";
+      if (response.ok && localOnboardingExists && data.onboarded && data.profile) setDashboard(data);
+      else {
+        setDashboard(null);
+        setStage(1);
+      }
+    } catch {
+      setDashboard(null);
+      setStage(1);
+    } finally {
+      setChecking(false);
+    }
+  };
+
+  useEffect(() => {
+    checkActiveDashboard();
+  }, []);
+
+  const submitOnboarding = async () => {
+    setSubmitting(true);
+    setError("");
+    const minimum = Number(answers.income_range_min);
+    const maximum = Number(answers.income_range_max);
+    const payload = {
+      ...answers,
+      ...identity,
+      terms_accepted: terms,
+      consent_income_analysis: consent.income,
+      consent_expense_estimation: consent.expenses,
+      consent_savings_goals: consent.savings,
+      avg_daily_income: (minimum + maximum) / 2,
+    };
+
+    try {
+      const response = await request("/api/users/onboard", {
+        method: "POST",
+        body: JSON.stringify(payload),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "We could not build your plan.");
+      window.localStorage.setItem(ONBOARDING_MARKER, "true");
+      setDashboard({
+        profile: data.profile,
+        current_balance: data.current_balance,
+        resilience_score: data.resilience_score,
+        buffer_days: data.buffer_days,
+        daily_burn_rate: data.daily_burn_rate,
+        monthly_essential_expenses: data.monthly_essential_expenses,
+        upcoming_bills: data.upcoming_bills,
+      });
+    } catch (submitError) {
+      setError(`${submitError.message} Please try again.`);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const restartOnboarding = () => {
+    setStage(1);
+    setIdentity({ full_name: "", work_type: "" });
+    setTerms(false);
+    setConsent({ income: true, expenses: true, savings: true });
+    setAnswers(initialAnswers);
+    setQuestionIndex(0);
+    setError("");
+  };
+
+  if (checking) {
+    return (
+      <div className="grid min-h-screen place-items-center bg-[#F8F9FA] px-4 text-center">
+        <div><span className="mx-auto grid h-14 w-14 animate-pulse place-items-center rounded-2xl bg-[#0F4135] text-white"><ShieldCheck size={27} /></span><h1 className="mt-4 text-xl font-bold text-[#26332E]">Getting your plan ready…</h1><p className="mt-2 text-sm text-[#74817C]">This will only take a moment.</p></div>
+      </div>
+    );
+  }
+
+  if (dashboard) {
+    return <MainApp dashboard={dashboard} setDashboard={setDashboard} onRequireOnboarding={restartOnboarding} />;
+  }
+
+  if (stage === 1) {
+    return <WelcomeStage identity={identity} setIdentity={setIdentity} onContinue={() => setStage(2)} />;
+  }
+
+  if (stage === 2) {
+    return <ConsentStage terms={terms} setTerms={setTerms} consent={consent} setConsent={setConsent} onBack={() => setStage(1)} onContinue={() => setStage(3)} />;
+  }
+
+  return <QuestionnaireStage answers={answers} setAnswers={setAnswers} questionIndex={questionIndex} setQuestionIndex={setQuestionIndex} onBack={() => setStage(2)} onSubmit={submitOnboarding} submitting={submitting} error={error} />;
 }
