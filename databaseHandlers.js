@@ -9,15 +9,17 @@ class ValidationError extends Error {
 function toNumber(payload, keys, fallback = 0) {
   const key = keys.find((candidate) => payload[candidate] !== undefined);
   if (!key) return fallback;
-  const value = Number(payload[key]);
-  if (!Number.isFinite(value) || value < 0) {
+  const value = Number(payload[key]) || 0;
+  if (value < 0) {
     throw new ValidationError(`${key} must be a non-negative number.`);
   }
   return value;
 }
 
 function normalizeOnboardingPayload(payload = {}) {
-  const workType = String(payload.work_type || "").trim();
+  const workType =
+    String(payload.work_type || payload.occupation || "Gig / Freelance")
+      .trim() || "Gig / Freelance";
   const avgDailyIncome = toNumber(payload, ["avg_daily_income", "daily_income"]);
   const rent = toNumber(payload, ["rent", "monthly_rent"]);
   const food = toNumber(payload, ["food", "monthly_food"]);
@@ -43,9 +45,6 @@ function normalizeOnboardingPayload(payload = {}) {
   ]);
   const emergencyGoal = toNumber(payload, ["emergency_goal"], 5000);
 
-  if (!workType) {
-    throw new ValidationError("work_type is required.");
-  }
   if (avgDailyIncome <= 0) {
     throw new ValidationError("avg_daily_income must be greater than zero.");
   }
@@ -71,9 +70,10 @@ function normalizeOnboardingPayload(payload = {}) {
   );
 
   return {
-    fullName: String(payload.full_name || payload.name || "ResilientBank User")
-      .trim()
-      .slice(0, 120),
+    fullName:
+      String(payload.full_name || payload.name || "ResilientBank User")
+        .trim()
+        .slice(0, 120) || "ResilientBank User",
     workType,
     avgDailyIncome,
     rent,

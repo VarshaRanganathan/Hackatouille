@@ -28,6 +28,7 @@ import {
 } from "lucide-react";
 
 const ONBOARDING_MARKER = "rb_onboarding_complete";
+const ACTIVE_PROFILE_KEY = "rb_active_profile";
 
 const tabs = [
   { id: "home", label: "Home", icon: Home },
@@ -662,16 +663,39 @@ export default function App() {
   const submitOnboarding = async () => {
     setSubmitting(true);
     setError("");
-    const minimum = Number(answers.income_range_min);
-    const maximum = Number(answers.income_range_max);
+    const numberValue = (value) => Number(value) || 0;
+    const minimum = numberValue(answers.income_range_min);
+    const maximum = numberValue(answers.income_range_max);
     const payload = {
-      ...answers,
-      ...identity,
+      full_name: identity.full_name.trim() || "ResilientBank User",
+      work_type: identity.work_type.trim() || "Gig / Freelance",
+      occupation: identity.work_type.trim() || "Gig / Freelance",
+      income_range_min: minimum,
+      income_range_max: maximum,
+      avg_daily_income: (minimum + maximum) / 2,
+      work_days_per_week: numberValue(answers.work_days_per_week),
+      income_frequency: answers.income_frequency || "Daily",
+      rent: numberValue(answers.rent),
+      utilities: numberValue(answers.utilities),
+      electricity: numberValue(answers.utilities),
+      food: numberValue(answers.food),
+      transport: numberValue(answers.transport),
+      debt_payment: numberValue(answers.debt_payment),
+      other_essentials: numberValue(answers.other_essentials),
+      current_balance: numberValue(answers.current_balance),
+      current_savings: numberValue(answers.current_savings),
+      emergency_goal: numberValue(answers.emergency_goal) || 5000,
+      goal_months: numberValue(answers.goal_months) || 6,
+      household_size: numberValue(answers.household_size) || 1,
+      dependents: numberValue(answers.dependents),
+      income_predictability: answers.income_predictability || "A little unpredictable",
+      saving_style: answers.saving_style || "Let the app suggest",
+      main_money_worry: answers.main_money_worry || "Bills arriving before income",
+      primary_goal: answers.primary_goal || "Build emergency savings",
       terms_accepted: terms,
       consent_income_analysis: consent.income,
       consent_expense_estimation: consent.expenses,
       consent_savings_goals: consent.savings,
-      avg_daily_income: (minimum + maximum) / 2,
     };
 
     try {
@@ -682,7 +706,8 @@ export default function App() {
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || "We could not build your plan.");
       window.localStorage.setItem(ONBOARDING_MARKER, "true");
-      setDashboard({
+      window.localStorage.setItem(ACTIVE_PROFILE_KEY, JSON.stringify(data.profile));
+      const nextDashboard = {
         profile: data.profile,
         current_balance: data.current_balance,
         resilience_score: data.resilience_score,
@@ -690,7 +715,8 @@ export default function App() {
         daily_burn_rate: data.daily_burn_rate,
         monthly_essential_expenses: data.monthly_essential_expenses,
         upcoming_bills: data.upcoming_bills,
-      });
+      };
+      setDashboard(nextDashboard);
     } catch (submitError) {
       setError(`${submitError.message} Please try again.`);
     } finally {
@@ -699,6 +725,7 @@ export default function App() {
   };
 
   const restartOnboarding = () => {
+    window.localStorage.removeItem(ACTIVE_PROFILE_KEY);
     setStage(1);
     setIdentity({ full_name: "", work_type: "" });
     setTerms(false);

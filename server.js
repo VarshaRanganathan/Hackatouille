@@ -143,7 +143,25 @@ function ensureDatabaseResult(result, action) {
 
 app.post("/api/users/onboard", async (req, res) => {
   try {
-    const answers = normalizeOnboardingPayload(req.body);
+    const payload = req.body && typeof req.body === "object" ? req.body : {};
+    const answers = normalizeOnboardingPayload({
+      ...payload,
+      avg_daily_income: Number(payload.avg_daily_income) || 0,
+      income_range_min: Number(payload.income_range_min) || 0,
+      income_range_max: Number(payload.income_range_max) || 0,
+      rent: Number(payload.rent) || 0,
+      food: Number(payload.food) || 0,
+      utilities: Number(payload.utilities ?? payload.electricity) || 0,
+      transport: Number(payload.transport ?? payload.fuel) || 0,
+      debt_payment:
+        Number(
+          payload.debt_payment ??
+            payload.existing_debt_payment ??
+            payload.existing_debt,
+        ) || 0,
+      current_balance: Number(payload.current_balance) || 0,
+      emergency_goal: Number(payload.emergency_goal) || 5000,
+    });
     const existingIdentity = await resolveRequestIdentity(req);
     const userId = existingIdentity?.userId || crypto.randomUUID();
     const db = existingIdentity?.db || supabase;
@@ -229,11 +247,9 @@ app.post("/api/users/onboard", async (req, res) => {
       score,
     });
   } catch (error) {
+    console.error("Onboarding error:", error);
     const status = error instanceof ValidationError ? error.statusCode : 500;
-    if (status === 500) console.error("Onboarding failed:", error.message);
-    return res.status(status).json({
-      error: status === 500 ? "Unable to complete onboarding." : error.message,
-    });
+    return res.status(status).json({ error: error.message });
   }
 });
 
