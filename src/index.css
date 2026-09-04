@@ -30,6 +30,22 @@ select {
 
 button {
   cursor: pointer;
+  min-height: 44px;
+  touch-action: manipulation;
+  transition:
+    transform 150ms ease,
+    background-color 150ms ease,
+    border-color 150ms ease,
+    color 150ms ease,
+    opacity 150ms ease;
+}
+
+button:not(:disabled):active {
+  transform: scale(0.95);
+}
+
+button:disabled {
+  cursor: not-allowed;
 }
 
 input[type="number"] {

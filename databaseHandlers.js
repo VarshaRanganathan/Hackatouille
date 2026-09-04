@@ -6,10 +6,20 @@ class ValidationError extends Error {
   }
 }
 
+const MAX_FINANCIAL_VALUE = 1_000_000_000;
+
 function toNumber(payload, keys, fallback = 0) {
   const key = keys.find((candidate) => payload[candidate] !== undefined);
   if (!key) return fallback;
   const value = Number(payload[key]) || 0;
+  if (!Number.isFinite(value)) {
+    throw new ValidationError(`${key} must be a finite number.`);
+  }
+  if (value > MAX_FINANCIAL_VALUE) {
+    throw new ValidationError(
+      `${key} must not exceed ${MAX_FINANCIAL_VALUE}.`,
+    );
+  }
   if (value < 0) {
     throw new ValidationError(`${key} must be a non-negative number.`);
   }
@@ -112,7 +122,7 @@ function normalizeOnboardingPayload(payload = {}) {
 }
 
 function getIncomeStabilityScore(workType) {
-  const normalized = workType.toLowerCase();
+  const normalized = String(workType || "").toLowerCase();
   if (normalized.includes("daily wage")) return 60;
   if (normalized.includes("vendor")) return 80;
   if (normalized.includes("gig") || normalized.includes("freelance")) return 70;
@@ -120,13 +130,19 @@ function getIncomeStabilityScore(workType) {
 }
 
 function calculateMetrics(answers) {
-  const rent = Number(answers.rent) || 0;
-  const food = Number(answers.food) || 0;
-  const utilities = Number(answers.utilities) || 0;
-  const transport = Number(answers.transport) || 0;
-  const debt = Number(answers.debt) || 0;
-  const currentBalance = Number(answers.currentBalance) || 0;
-  const avgDailyIncome = Number(answers.avgDailyIncome) || 0;
+  const finiteNumber = (value) => {
+    const number = Number(value) || 0;
+    return Number.isFinite(number)
+      ? Math.min(MAX_FINANCIAL_VALUE, number)
+      : 0;
+  };
+  const rent = Math.max(0, finiteNumber(answers.rent));
+  const food = Math.max(0, finiteNumber(answers.food));
+  const utilities = Math.max(0, finiteNumber(answers.utilities));
+  const transport = Math.max(0, finiteNumber(answers.transport));
+  const debt = Math.max(0, finiteNumber(answers.debt));
+  const currentBalance = Math.max(0, finiteNumber(answers.currentBalance));
+  const avgDailyIncome = Math.max(0, finiteNumber(answers.avgDailyIncome));
   const monthlyEssentialExpenses = rent + food + utilities + transport + debt;
   const dailyBurnRate = Math.max(1, monthlyEssentialExpenses / 30);
   const bufferDays = Math.max(0, Math.floor(currentBalance / dailyBurnRate));
@@ -159,14 +175,20 @@ function calculateMetrics(answers) {
 }
 
 function calculateSafeToSave(todayInflow, dailyBurnRate) {
-  const inflow = Number(todayInflow) || 0;
-  const burn = Math.max(1, Number(dailyBurnRate) || 0);
+  const parsedInflow = Number(todayInflow) || 0;
+  const parsedBurn = Number(dailyBurnRate) || 0;
+  const inflow = Number.isFinite(parsedInflow) ? Math.max(0, parsedInflow) : 0;
+  const burn = Math.max(1, Number.isFinite(parsedBurn) ? parsedBurn : 0);
   return Math.max(0, Math.round((inflow - burn) * 0.8));
 }
 
 function calculateAffordabilityCeiling(expected14DayIncome, dailyBurnRate) {
-  const expectedIncome = Number(expected14DayIncome) || 0;
-  const burn = Math.max(1, Number(dailyBurnRate) || 0);
+  const parsedIncome = Number(expected14DayIncome) || 0;
+  const parsedBurn = Number(dailyBurnRate) || 0;
+  const expectedIncome = Number.isFinite(parsedIncome)
+    ? Math.max(0, parsedIncome)
+    : 0;
+  const burn = Math.max(1, Number.isFinite(parsedBurn) ? parsedBurn : 0);
   return Math.max(0, Math.round((expectedIncome - burn * 14) * 0.4));
 }
 

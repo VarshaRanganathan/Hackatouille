@@ -1,0 +1,34 @@
+Act as a senior production QA team and lead financial software engineer auditing ResilientBank. Perform a comprehensive full-stack code audit and execution pass across `src/App.jsx` and `server.js` to ensure the app is 100% bug-free, perfectly styled, and completely airtight for hackathon judging.
+
+Execute the following checks and refactors immediately:
+
+1. COMPREHENSIVE FINANCIAL ENGINE AUDIT (Zero Formula Errors):
+   - Check all math in `server.js`:
+     * Daily Burn Rate = Math.max(1, (Rent + Food + Utilities + Transport + Debt) / 30)
+     * Buffer Days = Math.max(0, Math.floor(Current Liquid Balance / Daily Burn Rate))
+     * Safe-to-Save = Math.max(0, Math.round((Today Inflow - Daily Burn Rate) * 0.8))
+     * Credit Affordability Ceiling = Math.max(0, Math.round((Expected 14-Day Income - (Daily Burn Rate * 14)) * 0.4))
+   - Guardrails: Ensure no formula ever outputs `NaN`, `null`, `undefined`, or negative numbers, even if user inputs `0` or leaves empty fields during onboarding.
+
+2. UI & MOBILE RESPONSIVENESS AUDIT:
+   - Viewport Padding: Add `pb-32` to the main screen container on every single tab so content, forms, and charts are NEVER hidden behind the fixed 5-tab bottom bar (`[Home] [Resilience] [Save] [Credit] [Guidance]`).
+   - Touch Accessibility: Ensure every button, chip, and card has clean active states (`active:scale-95 transition-all cursor-pointer`) with a minimum touch target size of 44px.
+   - Contrast & Aesthetics: Enforce a modern Indian fintech palette—Deep Emerald (`#0F4135`), soft neutral background (`#F8F9FA`), pristine white card surfaces, charcoal text (`#1E293B`), and Indian Rupee symbol (₹) everywhere.
+
+3. SINGLE-USER ONBOARDING & DATA SANITIZATION:
+   - Verify that NO old 30-user mock profiles, dropdown selectors, or hardcoded references remain anywhere in the app or server.
+   - Form Validation: Require Name and Income fields in the 20-question wizard before allowing progression.
+   - Data Normalization: Sanitize all form values via `Number(val) || 0` on submission to `POST /api/users/onboard`.
+   - Onboard Success Transition: Instantly switch to the Home Dashboard without requiring a manual page refresh.
+
+4. INTERACTIVE MODULES & EXPLAINABILITY (100% Working State):
+   - Home Tab: Tapping [ Save ₹300 ] must instantly reduce Available Balance, increment Emergency Savings, recalculate Buffer Days, and trigger a toast notification anchored safely at `top-4 z-50`.
+   - Save & Credit Tabs: Ensure dragging sliders or inputting custom numbers dynamically updates credit approval statuses (Green Approved vs. Amber Circuit Breaker counter-offer) in real time.
+   - Guidance Tab Chatbot: Ensure `POST /api/guidance/chat` responds to both quick-prompt pills and custom typed user questions with clear, jargon-free advice using the user's name and real-time Buffer Days.
+   - Explainability Sheets: Ensure tapping "Why?" on ANY core metric opens a bottom-sheet drawer detailing the exact plain-English calculation logic.
+   - What-If Simulator: Moving sliders must smoothly animate projected Buffer Days and Resilience Scores without layout shift or UI flickering.
+
+5. RESET & ISOLATED SESSION INTEGRITY:
+   - Ensure the "Reset App / Onboard New User" button in the Data Control drawer calls `POST /api/users/reset`, clears `localStorage`, wipes active backend state, and returns the screen smoothly to Stage 1 of onboarding.
+
+Refactor the codebase to address any missing edge cases, fix quiet console errors, and ensure the entire app functions smoothly end-to-end.

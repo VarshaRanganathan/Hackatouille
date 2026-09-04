@@ -29,6 +29,7 @@ import {
 
 const ONBOARDING_MARKER = "rb_onboarding_complete";
 const ACTIVE_PROFILE_KEY = "rb_active_profile";
+const PENDING_SAVE_KEY = "rb_pending_save_operation";
 
 const tabs = [
   { id: "home", label: "Home", icon: Home },
@@ -48,7 +49,7 @@ const questions = [
   { key: "food", label: "How much does your household spend on food each month?", prefix: "₹", type: "number", placeholder: "3,000" },
   { key: "transport", label: "How much do you spend on fuel and transport each month?", prefix: "₹", type: "number", placeholder: "1,500" },
   { key: "debt_payment", label: "How much do you pay toward loans or debt each month?", prefix: "₹", type: "number", placeholder: "0" },
-  { key: "other_essentials", label: "Any other essential monthly costs?", prefix: "₹", type: "number", placeholder: "0" },
+  { key: "surprise_cost_frequency", label: "How often do surprise costs disrupt your plan?", type: "choice", options: ["Rarely", "A few times a year", "Every month", "Most weeks"] },
   { key: "current_balance", label: "How much money can you use right now?", prefix: "₹", type: "number", placeholder: "6,850" },
   { key: "current_savings", label: "How much have you already set aside for emergencies?", prefix: "₹", type: "number", placeholder: "3,400" },
   { key: "emergency_goal", label: "How much emergency money would help you feel safer?", prefix: "₹", type: "number", placeholder: "5,000" },
@@ -71,7 +72,7 @@ const initialAnswers = {
   food: "",
   transport: "",
   debt_payment: "0",
-  other_essentials: "0",
+  surprise_cost_frequency: "",
   current_balance: "",
   current_savings: "",
   emergency_goal: "",
@@ -496,20 +497,21 @@ function CashChart() {
   );
 }
 
-function HomeTab({ dashboard, name, setTab, showToast, openExplain }) {
+function HomeTab({ dashboard, name, setTab, showToast, openExplain, onSaveThreeHundred, saving }) {
   const balance = Number(dashboard.current_balance) || 0;
   const burn = Number(dashboard.daily_burn_rate) || 0;
   const safeToSpend = Math.max(0, balance - burn * 7);
   const bills = dashboard.upcoming_bills || [];
   return (
-    <div className="space-y-5 pb-28">
+    <div className="space-y-5 pb-32">
       <div><p className="text-xs font-medium text-[#72807B]">Your plan is ready</p><h1 className="mt-1 text-3xl font-bold tracking-[-0.055em] text-[#18231F]">Hi, {name.split(" ")[0]}. Here’s your money today.</h1></div>
       <section className="rounded-[28px] bg-[#0F4135] p-5 text-white shadow-xl shadow-[#0F4135]/15 sm:p-7">
         <div className="flex items-center justify-between gap-3"><p className="flex items-center gap-2 text-xs font-bold text-[#B5D3C8]"><WalletCards size={15} /> Money you can use now</p><WhyButton inverse onClick={() => openExplain({ title: "Available balance and bill cushion", text: "Available balance starts with the money you entered and falls when you move money into emergency savings. Your bill cushion shows how many complete days of essentials that balance can cover.", formula: "Bill cushion = available balance ÷ daily essential cost, rounded down." })} /></div>
         <strong className="mt-4 block text-5xl tracking-[-0.075em]">{money(balance)}</strong>
-        <div className="mt-7 grid grid-cols-2 gap-4 border-t border-white/15 pt-5">
+        <div className="mt-7 grid grid-cols-2 gap-4 border-t border-white/15 pt-5 sm:grid-cols-3">
           <div><span className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#9DBFB3]">Safe to spend</span><strong className="mt-1 block text-2xl">{money(safeToSpend)}</strong></div>
           <div className="border-l border-white/15 pl-4"><span className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#9DBFB3]">Bills covered</span><strong className="mt-1 block text-2xl">{Number(dashboard.buffer_days || 0).toFixed(0)} days</strong></div>
+          <div className="col-span-2 border-t border-white/15 pt-4 sm:col-span-1 sm:border-l sm:border-t-0 sm:pl-4 sm:pt-0"><span className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#9DBFB3]">Emergency savings</span><strong className="mt-1 block text-2xl">{money(dashboard.current_savings)}</strong></div>
         </div>
       </section>
       <div className="grid gap-5 lg:grid-cols-[1.1fr_.9fr]">
@@ -524,7 +526,8 @@ function HomeTab({ dashboard, name, setTab, showToast, openExplain }) {
           <div className="flex items-center justify-between gap-3"><span className="inline-flex items-center gap-1 rounded-full bg-[#FFF1CF] px-2.5 py-1 text-[11px] font-bold text-[#80560C]"><Sparkles size={12} /> Today’s suggestion</span><WhyButton onClick={() => openExplain({ title: "Daily essential cost", text: "We add the essential monthly costs you entered and spread them evenly across 30 days. We always use at least ₹1 so calculations never divide by zero.", formula: "Daily essential cost = max(₹1, monthly essentials ÷ 30)." })} /></div>
           <h2 className="mt-4 text-2xl font-bold tracking-[-0.04em] text-[#322D23]">Keep today’s saving small and safe.</h2>
           <p className="mt-3 text-sm leading-6 text-[#70695B]">Your daily bill cost is about <strong>{money(burn)}</strong>. Check today’s income before moving anything.</p>
-          <button onClick={() => setTab("save")} className="focus-ring mt-5 w-full rounded-2xl bg-[#0F4135] py-3 text-sm font-bold text-white">Check what I can save</button>
+          <button onClick={() => onSaveThreeHundred()} disabled={saving || balance < 300} className="focus-ring mt-5 w-full rounded-2xl bg-[#0F4135] py-3 text-sm font-bold text-white disabled:cursor-not-allowed disabled:opacity-45">{saving ? "Saving..." : "Save ₹300"}</button>
+          <button onClick={() => setTab("save")} className="focus-ring mt-2 w-full py-2 text-xs font-bold text-[#466258]">Check a custom amount</button>
           <button onClick={() => showToast("Skipped for today. No money moved.")} className="focus-ring mt-2 w-full py-2 text-xs font-bold text-[#78837F]">Skip today</button>
         </Card>
       </div>
@@ -535,7 +538,7 @@ function HomeTab({ dashboard, name, setTab, showToast, openExplain }) {
 function ResilienceTab({ dashboard, openExplain }) {
   const score = Number(dashboard.resilience_score) || 0;
   return (
-    <div className="space-y-5 pb-28">
+    <div className="space-y-5 pb-32">
       <div><p className="text-[10px] font-bold uppercase tracking-[0.17em] text-[#63776F]">Resilience</p><h1 className="mt-2 text-3xl font-bold tracking-[-0.055em] text-[#18231F]">How ready am I for a slow week?</h1></div>
       <div className="grid gap-5 lg:grid-cols-[.8fr_1.2fr]">
         <Card className="flex flex-col items-center text-center"><div className="self-end"><WhyButton onClick={() => openExplain({ title: "Resilience score", text: "Half of the score comes from your bill cushion. Income steadiness contributes 30%, and cash-flow volatility contributes 20%. A 30-day cushion earns the full cushion portion.", formula: "Score = min(100, round(min(1, buffer days ÷ 30) × 50 + income steadiness × 0.3 + volatility × 0.2))." })} /></div><ScoreRing score={score} /><h2 className="mt-5 text-2xl font-bold text-[#173E32]">{Number(dashboard.buffer_days || 0).toFixed(0)} days covered</h2><p className="mt-2 text-sm leading-6 text-[#68766F]">This is how long your current balance could cover essential daily costs.</p></Card>
@@ -546,11 +549,10 @@ function ResilienceTab({ dashboard, openExplain }) {
   );
 }
 
-function SaveTab({ dashboard, setDashboard, showToast, openExplain }) {
+function SaveTab({ dashboard, showToast, openExplain, onSaveThreeHundred, saving }) {
   const [inflow, setInflow] = useState("");
   const [result, setResult] = useState(null);
   const [loading, setLoading] = useState(false);
-  const [saving, setSaving] = useState(false);
   const balance = Number(dashboard.current_balance) || 0;
   const emergencySavings = Number(dashboard.current_savings) || 0;
   const emergencyGoal = Math.max(1, Number(dashboard.emergency_goal || dashboard.profile?.emergency_goal) || 5000);
@@ -568,36 +570,13 @@ function SaveTab({ dashboard, setDashboard, showToast, openExplain }) {
       setLoading(false);
     }
   };
-  const saveThreeHundred = async () => {
-    setSaving(true);
-    try {
-      const response = await request("/api/savings/commit", {
-        method: "POST",
-        body: JSON.stringify({ amount: 300 }),
-      });
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.error || "We could not save that amount.");
-      setDashboard((current) => ({
-        ...current,
-        current_balance: data.current_balance,
-        current_savings: data.current_savings,
-        buffer_days: data.buffer_days,
-        resilience_score: data.resilience_score,
-      }));
-      showToast("₹300 moved into emergency savings.");
-    } catch (error) {
-      showToast(error.message);
-    } finally {
-      setSaving(false);
-    }
-  };
   return (
-    <div className="space-y-5 pb-28">
+    <div className="space-y-5 pb-32">
       <div><p className="text-[10px] font-bold uppercase tracking-[0.17em] text-[#63776F]">Save</p><h1 className="mt-2 text-3xl font-bold tracking-[-0.055em] text-[#18231F]">What can I safely save today?</h1><p className="mt-2 text-sm text-[#6E7B76]">Tell us what came in today. We’ll protect your daily bill cost first.</p></div>
       <div className="grid gap-5 lg:grid-cols-[1.1fr_.9fr]">
         <Card>
           <div className="flex justify-end"><WhyButton onClick={() => openExplain({ title: "Safe-to-save amount", text: "We first protect one day of essential costs. From what remains, we suggest saving 80% and leave the other 20% as an extra margin.", formula: "Safe to save = max(₹0, round((today’s income − daily essential cost) × 0.8))." })} /></div>
-          <label className="text-sm font-bold text-[#42514B]">Money received today<div className="relative mt-2"><span className="absolute left-4 top-4 text-lg font-bold text-[#67766F]">₹</span><input type="number" min="0" value={inflow} onChange={(event) => setInflow(event.target.value)} placeholder="1,200" className="focus-ring w-full [appearance:textfield] rounded-2xl border border-[#D9E1DD] py-4 pl-10 pr-4 text-2xl font-bold outline-none [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none" /></div></label>
+          <label className="text-sm font-bold text-[#42514B]">Money received today<div className="relative mt-2"><span className="absolute left-4 top-4 text-lg font-bold text-[#67766F]">₹</span><input type="number" min="0" value={inflow} onChange={(event) => { const nextInflow = event.target.value; setInflow(nextInflow); const parsed = Number(nextInflow); setResult(nextInflow !== "" && Number.isFinite(parsed) && parsed >= 0 ? Math.max(0, Math.round((parsed - Math.max(1, Number(dashboard.daily_burn_rate) || 0)) * 0.8)) : null); }} placeholder="1,200" className="focus-ring w-full [appearance:textfield] rounded-2xl border border-[#D9E1DD] py-4 pl-10 pr-4 text-2xl font-bold outline-none [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none" /></div></label>
           <div className="mt-4 rounded-2xl bg-[#F3F6F4] p-4 text-sm text-[#607069]">Your saved daily bill cost: <strong>{money(dashboard.daily_burn_rate)}</strong></div>
           <PrimaryButton onClick={calculate} disabled={inflow === "" || Number(inflow) < 0 || loading} className="mt-5">{loading ? "Checking..." : "Show my safe amount"}</PrimaryButton>
         </Card>
@@ -610,7 +589,7 @@ function SaveTab({ dashboard, setDashboard, showToast, openExplain }) {
             <div className="mt-3 h-2.5 overflow-hidden rounded-full bg-[#D9E9E2]"><div className="h-full rounded-full bg-[#258064] transition-[width] duration-300" style={{ width: `${savingsProgress}%` }} /></div>
             <div className="mt-3 flex justify-between text-[11px] text-[#71817B]"><span>Available {money(balance)}</span><span>{Number(dashboard.buffer_days) || 0} buffer days</span></div>
           </div>
-          <button onClick={saveThreeHundred} disabled={saving || balance < 300 || result === null || result < 300} className="focus-ring mt-5 w-full rounded-2xl bg-[#0F4135] px-5 py-3 text-sm font-bold text-white disabled:cursor-not-allowed disabled:opacity-45">{saving ? "Saving..." : "Save ₹300"}</button>
+          <button onClick={() => onSaveThreeHundred(inflow)} disabled={saving || balance < 300 || result === null || result < 300} className="focus-ring mt-5 w-full rounded-2xl bg-[#0F4135] px-5 py-3 text-sm font-bold text-white disabled:cursor-not-allowed disabled:opacity-45">{saving ? "Saving..." : "Save ₹300"}</button>
           {result !== null && result < 300 && <p className="mt-2 text-center text-xs text-[#7C6843]">Today’s safe amount is below ₹300, so this transfer is paused.</p>}
         </Card>
       </div>
@@ -624,7 +603,7 @@ function CreditTab({ dashboard, showToast, openExplain }) {
   const [amount, setAmount] = useState(() => Math.min(3000, Math.max(500, ceiling)));
   const safe = amount > 0 && amount <= ceiling;
   return (
-    <div className="space-y-5 pb-28">
+    <div className="space-y-5 pb-32">
       <div><p className="text-[10px] font-bold uppercase tracking-[0.17em] text-[#63776F]">Credit</p><h1 className="mt-2 text-3xl font-bold tracking-[-0.055em] text-[#18231F]">Borrow safely.</h1><p className="mt-2 text-sm text-[#6E7B76]">Check an amount before it cuts into your bill money.</p></div>
       <div className="grid gap-5 lg:grid-cols-2">
         <Card><div className="flex items-center justify-between gap-3"><label htmlFor="credit-amount" className="text-sm font-bold text-[#42514B]">Requested amount</label><WhyButton onClick={() => openExplain({ title: "Affordability ceiling", text: "We estimate 14 days of income, protect 14 days of essential costs, then allow only 40% of what remains for repayment.", formula: "Ceiling = max(₹0, round((expected 14-day income − daily essential cost × 14) × 0.4))." })} /></div><strong className="mt-4 block text-4xl tracking-[-0.06em] text-[#173E32]">{money(amount)}</strong><input id="credit-amount" type="range" min="0" max={sliderMaximum} step="100" value={amount} onChange={(event) => setAmount(Number(event.target.value))} className="mt-7 w-full accent-[#0F4135]" /><div className="mt-2 flex justify-between text-[10px] font-bold text-[#7A8882]"><span>₹0</span><span>{money(sliderMaximum)}</span></div><p className="mt-4 rounded-2xl bg-[#F3F6F4] p-4 text-sm text-[#607069]">Your affordability ceiling: <strong>{money(ceiling)}</strong></p></Card>
@@ -642,8 +621,10 @@ function GuidanceTab({ dashboard, openExplain }) {
   const [sending, setSending] = useState(false);
   const chatEndRef = useRef(null);
   const monthlyAdded = weekly * 4;
-  const simulatedSavings = (Number(dashboard.current_savings) || 0) + monthlyAdded;
-  const simulatedBuffer = Math.max(0, Math.floor(((Number(dashboard.current_balance) || 0) + monthlyAdded) / Math.max(1, Number(dashboard.daily_burn_rate) || 0)));
+  const simulatedTransfer = Math.min(monthlyAdded, Number(dashboard.current_balance) || 0);
+  const simulatedSavings = (Number(dashboard.current_savings) || 0) + simulatedTransfer;
+  const simulatedBalance = Math.max(0, (Number(dashboard.current_balance) || 0) - simulatedTransfer);
+  const simulatedBuffer = Math.max(0, Math.floor(simulatedBalance / Math.max(1, Number(dashboard.daily_burn_rate) || 0)));
   const simulatedScore = resilienceFrom(simulatedBuffer, dashboard.income_stability_score, dashboard.volatility_score);
 
   useEffect(() => {
@@ -680,11 +661,11 @@ function GuidanceTab({ dashboard, openExplain }) {
   };
 
   return (
-    <div className="space-y-5 pb-28">
+    <div className="space-y-5 pb-32">
       <div><p className="text-[10px] font-bold uppercase tracking-[0.17em] text-[#63776F]">Guidance</p><h1 className="mt-2 text-3xl font-bold tracking-[-0.055em] text-[#18231F]">A calm second opinion.</h1></div>
       <div className="mx-auto grid max-w-lg grid-cols-2 rounded-2xl border border-[#DDE5E1] bg-white p-1.5"><button onClick={() => setMode("assistant")} className={cx("focus-ring flex items-center justify-center gap-2 rounded-xl py-2.5 text-xs font-bold", mode === "assistant" ? "bg-[#0F4135] text-white" : "text-[#687771]")}><Bot size={15} /> Ask a question</button><button onClick={() => setMode("simulator")} className={cx("focus-ring flex items-center justify-center gap-2 rounded-xl py-2.5 text-xs font-bold", mode === "simulator" ? "bg-[#0F4135] text-white" : "text-[#687771]")}><SlidersHorizontal size={15} /> Try a plan</button></div>
       <div className={mode === "assistant" ? "block" : "hidden"}><Card className="mx-auto max-w-3xl"><div className="flex h-[360px] flex-col"><div aria-live="polite" className="min-h-0 flex-1 space-y-3 overflow-y-auto pr-1">{messages.map((message, index) => <div key={`${message.sender}-${index}`} className={cx("flex", message.sender === "user" ? "justify-end" : "justify-start")}><p className={cx("max-w-[88%] whitespace-pre-line rounded-2xl border px-4 py-3 text-sm leading-6", message.sender === "user" ? "rounded-br-md border-[#0F4135] bg-[#0F4135] text-white" : "rounded-bl-md border-[#E1E7E4] bg-white text-slate-900")}>{message.text}</p></div>)}{sending && <div className="flex justify-start"><p className="rounded-2xl rounded-bl-md border border-[#E1E7E4] bg-white px-4 py-3 text-sm text-[#687771]">Checking your live plan…</p></div>}<div ref={chatEndRef} /></div><div className="mt-4 flex gap-2 overflow-x-auto border-t border-[#E5EAE7] pt-4 scrollbar-hidden">{["Can I save ₹500 today?", "Can I afford a loan?", "Why did my score change?"].map((prompt) => <button type="button" key={prompt} onClick={() => sendMessage(prompt)} disabled={sending} className="focus-ring shrink-0 rounded-xl border border-[#DDE4E0] px-3 py-2 text-xs font-bold text-[#4C6057] disabled:opacity-50">{prompt}</button>)}</div><form onSubmit={handleSubmit} className="sticky bottom-0 mt-3 flex gap-2 bg-white pt-1"><input aria-label="Ask financial guidance" value={input} onChange={(event) => setInput(event.target.value)} placeholder="Ask about your savings, bills, or loan limits..." className="focus-ring min-w-0 flex-1 rounded-2xl border border-[#D9E1DD] px-4 py-3 text-sm font-semibold text-[#293630] outline-none placeholder:font-normal placeholder:text-[#9AA7A1]" /><button type="submit" disabled={!input.trim() || sending} className="focus-ring rounded-2xl bg-[#0F4135] px-5 py-3 text-sm font-bold text-white disabled:cursor-not-allowed disabled:opacity-45">{sending ? "..." : "Send"}</button></form></div></Card><div className="mx-auto mt-3 flex max-w-3xl items-start gap-2 rounded-2xl border border-[#DCE9E2] bg-[#EDF7F2] p-4 text-xs leading-5 text-[#45685A]"><ShieldCheck className="mt-0.5 shrink-0 text-[#17634D]" size={16} /><span>Guidance is based on your real-time cash flow. ResilientBank never executes transactions without your explicit tap.</span></div></div>
-      <div className={mode === "simulator" ? "block" : "hidden"}><Card className="mx-auto max-w-3xl"><div className="flex items-center justify-between gap-3"><span className="inline-flex items-center gap-1 rounded-full bg-[#E9F1FF] px-3 py-1 text-xs font-bold text-[#385F94]"><RefreshCw size={12} /> This is only a test</span><WhyButton onClick={() => openExplain({ title: "What-if projection", text: "The simulator adds four weeks of the selected saving amount to your emergency savings, then recalculates full buffer days and the resilience score. It does not move real money.", formula: "Projected savings = current savings + weekly amount × 4. Projected buffer = floor((available balance + added savings) ÷ daily essential cost)." })} /></div><h2 className="mt-4 text-2xl font-bold text-[#28352F]">What if I save {money(weekly)} each week?</h2><input type="range" min="50" max="500" step="50" value={weekly} onChange={(event) => setWeekly(Number(event.target.value))} className="mt-7 w-full accent-[#0F4135]" /><div className="mt-6 grid min-h-28 grid-cols-1 gap-3 sm:grid-cols-3"><div className="rounded-2xl bg-[#EDF7F2] p-4"><span className="text-[10px] font-bold uppercase text-[#60786E]">Emergency savings</span><strong className="mt-2 block text-2xl text-[#17634D]">{money(simulatedSavings)}</strong></div><div className="rounded-2xl bg-[#EDF7F2] p-4"><span className="text-[10px] font-bold uppercase text-[#60786E]">New bill cushion</span><strong className="mt-2 block text-2xl text-[#17634D]">{simulatedBuffer} days</strong></div><div className="rounded-2xl bg-[#EDF7F2] p-4"><span className="text-[10px] font-bold uppercase text-[#60786E]">New score</span><strong className="mt-2 block text-2xl text-[#17634D]">{simulatedScore}/100</strong></div></div></Card></div>
+      <div className={mode === "simulator" ? "block" : "hidden"}><Card className="mx-auto max-w-3xl"><div className="flex items-center justify-between gap-3"><span className="inline-flex items-center gap-1 rounded-full bg-[#E9F1FF] px-3 py-1 text-xs font-bold text-[#385F94]"><RefreshCw size={12} /> This is only a test</span><WhyButton onClick={() => openExplain({ title: "What-if projection", text: "The simulator moves up to four weeks of the selected amount from available money into emergency savings, then recalculates full buffer days and the resilience score. It never moves more than your available balance and does not move real money.", formula: "Projected savings = current savings + transfer. Projected buffer = floor((available balance − transfer) ÷ daily essential cost)." })} /></div><h2 className="mt-4 text-2xl font-bold text-[#28352F]">What if I save {money(weekly)} each week?</h2><input type="range" min="50" max="500" step="50" value={weekly} onChange={(event) => setWeekly(Number(event.target.value))} className="mt-7 w-full accent-[#0F4135]" /><div className="mt-6 grid min-h-28 grid-cols-1 gap-3 sm:grid-cols-3"><div className="rounded-2xl bg-[#EDF7F2] p-4"><span className="text-[10px] font-bold uppercase text-[#60786E]">Emergency savings</span><strong className="mt-2 block text-2xl text-[#17634D]">{money(simulatedSavings)}</strong></div><div className="rounded-2xl bg-[#EDF7F2] p-4"><span className="text-[10px] font-bold uppercase text-[#60786E]">New bill cushion</span><strong className="mt-2 block text-2xl text-[#17634D]">{simulatedBuffer} days</strong></div><div className="rounded-2xl bg-[#EDF7F2] p-4"><span className="text-[10px] font-bold uppercase text-[#60786E]">New score</span><strong className="mt-2 block text-2xl text-[#17634D]">{simulatedScore}/100</strong></div></div></Card></div>
     </div>
   );
 }
@@ -724,6 +705,7 @@ function MainApp({ dashboard, setDashboard, onRequireOnboarding }) {
   const [drawer, setDrawer] = useState(null);
   const [toast, setToast] = useState("");
   const [resetting, setResetting] = useState(false);
+  const [saving, setSaving] = useState(false);
   const [explanation, setExplanation] = useState(null);
   const name = dashboard.profile?.full_name || "there";
 
@@ -750,10 +732,50 @@ function MainApp({ dashboard, setDashboard, onRequireOnboarding }) {
     }
   };
 
+  const saveThreeHundred = async (todayInflow) => {
+    if (saving) return;
+    setSaving(true);
+    let operationId = window.localStorage.getItem(PENDING_SAVE_KEY);
+    if (!operationId) {
+      operationId = window.crypto.randomUUID();
+      window.localStorage.setItem(PENDING_SAVE_KEY, operationId);
+    }
+    try {
+      const response = await request("/api/savings/commit", {
+        method: "POST",
+        body: JSON.stringify({
+          amount: 300,
+          operationId,
+          ...(todayInflow !== undefined
+            ? { todayInflow: Number(todayInflow) }
+            : {}),
+        }),
+      });
+      const data = await response.json();
+      if (!response.ok) {
+        window.localStorage.removeItem(PENDING_SAVE_KEY);
+        throw new Error(data.error || "We could not save that amount.");
+      }
+      window.localStorage.removeItem(PENDING_SAVE_KEY);
+      setDashboard((current) => ({
+        ...current,
+        current_balance: data.current_balance,
+        current_savings: data.current_savings,
+        buffer_days: data.buffer_days,
+        resilience_score: data.resilience_score,
+      }));
+      setToast("₹300 moved into emergency savings.");
+    } catch (error) {
+      setToast(error.message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const content = {
-    home: <HomeTab dashboard={dashboard} name={name} setTab={setTab} showToast={setToast} openExplain={setExplanation} />,
+    home: <HomeTab dashboard={dashboard} name={name} setTab={setTab} showToast={setToast} openExplain={setExplanation} onSaveThreeHundred={saveThreeHundred} saving={saving} />,
     resilience: <ResilienceTab dashboard={dashboard} openExplain={setExplanation} />,
-    save: <SaveTab dashboard={dashboard} setDashboard={setDashboard} showToast={setToast} openExplain={setExplanation} />,
+    save: <SaveTab dashboard={dashboard} showToast={setToast} openExplain={setExplanation} onSaveThreeHundred={saveThreeHundred} saving={saving} />,
     credit: <CreditTab dashboard={dashboard} showToast={setToast} openExplain={setExplanation} />,
     guidance: <GuidanceTab dashboard={dashboard} openExplain={setExplanation} />,
   }[tab];
@@ -763,12 +785,12 @@ function MainApp({ dashboard, setDashboard, onRequireOnboarding }) {
       <header className="sticky top-0 z-30 border-b border-[#E4E9E6] bg-[#F8F9FA]/95 backdrop-blur-md">
         <div className="mx-auto flex max-w-6xl items-center gap-2 px-4 py-3 sm:px-6"><button onClick={() => setTab("home")} className="focus-ring mr-auto"><Brand /></button><button aria-label="Data control" onClick={() => setDrawer("data")} className="focus-ring grid h-10 w-10 place-items-center rounded-xl border border-[#DDE4E0] bg-white text-[#536A60]"><LockKeyhole size={17} /></button><button aria-label="Notifications" onClick={() => setDrawer("notifications")} className="focus-ring grid h-10 w-10 place-items-center rounded-xl border border-[#DDE4E0] bg-white text-[#536A60]"><Bell size={17} /></button><div className="hidden rounded-xl border border-[#DDE4E0] bg-white px-3 py-2 sm:block"><strong className="block max-w-40 truncate text-xs text-[#34423D]">{name}</strong><span className="block max-w-40 truncate text-[10px] text-[#78857F]">{dashboard.profile?.work_type || "Independent worker"}</span></div></div>
       </header>
-      <main className="mx-auto max-w-6xl px-4 py-5 pb-28 sm:px-6 sm:py-7 sm:pb-28">{content}</main>
+      <main className="mx-auto max-w-6xl px-4 py-5 pb-32 sm:px-6 sm:py-7 sm:pb-32">{content}</main>
       <nav className="fixed inset-x-0 bottom-0 z-30 border-t border-[#DFE5E2] bg-white/95 pb-[max(.5rem,env(safe-area-inset-bottom))] pt-2 backdrop-blur-lg"><div className="mx-auto flex max-w-xl justify-around px-2">{tabs.map(({ id, label, icon: Icon }) => <button key={id} onClick={() => setTab(id)} className={cx("focus-ring flex min-w-14 flex-col items-center gap-1 rounded-xl px-2 py-1.5 text-[10px] font-bold", tab === id ? "bg-[#E9F3EE] text-[#0F5D47]" : "text-[#7A8782]")}><Icon size={19} strokeWidth={tab === id ? 2.5 : 1.8} />{label}</button>)}</div></nav>
       {drawer === "data" && <DataDrawer close={() => setDrawer(null)} onReset={reset} resetting={resetting} />}
       {drawer === "notifications" && <NotificationsDrawer close={() => setDrawer(null)} />}
       <ExplainSheet explanation={explanation} close={() => setExplanation(null)} />
-      {toast && <div className="pointer-events-none fixed top-16 left-1/2 z-50 flex max-w-[calc(100%-2rem)] -translate-x-1/2 items-center gap-2 rounded-xl bg-[#0F4135] px-4 py-3 text-xs font-bold whitespace-nowrap text-white shadow-xl"><Check size={15} />{toast}</div>}
+      {toast && <div className="pointer-events-none fixed top-4 left-1/2 z-50 flex max-w-[calc(100%-2rem)] -translate-x-1/2 items-center gap-2 rounded-xl bg-[#0F4135] px-4 py-3 text-xs font-bold whitespace-nowrap text-white shadow-xl"><Check size={15} />{toast}</div>}
     </div>
   );
 }
@@ -857,7 +879,7 @@ export default function App() {
       food: numberValue(answers.food),
       transport: numberValue(answers.transport),
       debt_payment: numberValue(answers.debt_payment),
-      other_essentials: numberValue(answers.other_essentials),
+      surprise_cost_frequency: answers.surprise_cost_frequency || "A few times a year",
       current_balance: numberValue(answers.current_balance),
       current_savings: numberValue(answers.current_savings),
       emergency_goal: numberValue(answers.emergency_goal) || 5000,

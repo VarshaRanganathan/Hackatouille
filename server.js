@@ -1,7 +1,6 @@
 require("dotenv").config();
 
 const crypto = require("crypto");
-const cors = require("cors");
 const express = require("express");
 const path = require("path");
 const {
@@ -22,12 +21,13 @@ const app = express();
 const PORT = Number(process.env.PORT) || 3000;
 const SESSION_COOKIE = "rb_active_user";
 const SESSION_SECRET = process.env.SESSION_SECRET;
+const MAX_FINANCIAL_VALUE = 1_000_000_000;
+const userMutationQueues = new Map();
 
 if (!SESSION_SECRET) {
   throw new Error("SESSION_SECRET must be configured before starting the server.");
 }
 
-app.use(cors({ origin: true, credentials: true }));
 app.use(express.json({ limit: "256kb" }));
 app.use(express.static(path.join(__dirname, "dist")));
 
@@ -144,6 +144,24 @@ function ensureDatabaseResult(result, action) {
   return result.data;
 }
 
+async function withUserMutationLock(userId, operation) {
+  const previous = userMutationQueues.get(userId) || Promise.resolve();
+  let release;
+  const current = new Promise((resolve) => {
+    release = resolve;
+  });
+  userMutationQueues.set(userId, current);
+  await previous.catch(() => undefined);
+  try {
+    return await operation();
+  } finally {
+    release();
+    if (userMutationQueues.get(userId) === current) {
+      userMutationQueues.delete(userId);
+    }
+  }
+}
+
 function getProfileUserType(workType) {
   const normalized = String(workType || "").toLowerCase();
   if (normalized.includes("vendor")) return "vendor";
@@ -155,6 +173,46 @@ function getWorkTypeLabel(userType) {
   if (userType === "vendor") return "Vendor";
   if (userType === "freelancer") return "Freelancer";
   return "Delivery / Gig Worker";
+}
+
+function createBalanceDescription(initialBalance, operations = []) {
+  return `RB_BALANCE:${JSON.stringify({
+    initial: Math.max(0, Number(initialBalance) || 0),
+    operations,
+  })}`;
+}
+
+function parseBalanceDescription(description, currentBalance) {
+  const raw = String(description || "");
+  if (!raw.startsWith("RB_BALANCE:")) {
+    return {
+      initial: Math.max(0, Number(currentBalance) || 0),
+      operations: [],
+      managed: false,
+    };
+  }
+  try {
+    const parsed = JSON.parse(raw.slice("RB_BALANCE:".length));
+    return {
+      initial: Math.max(
+        Number(currentBalance) || 0,
+        Number(parsed.initial) || 0,
+      ),
+      operations: Array.isArray(parsed.operations)
+        ? parsed.operations.filter(
+            (operation) =>
+              typeof operation === "string" && operation.length <= 100,
+          )
+        : [],
+      managed: true,
+    };
+  } catch {
+    return {
+      initial: Math.max(0, Number(currentBalance) || 0),
+      operations: [],
+      managed: false,
+    };
+  }
 }
 
 function deriveDashboardMetrics(profile, expenses, transactions) {
@@ -172,15 +230,35 @@ function deriveDashboardMetrics(profile, expenses, transactions) {
         0,
       );
 
-  const baseBalance = transactionAmount("current_balance");
+  const balanceTransaction = transactions.find(
+    (transaction) => transaction.category === "current_balance",
+  );
+  const storedBalance = Math.max(
+    0,
+    Number(balanceTransaction?.amount) || 0,
+  );
+  const balanceState = parseBalanceDescription(
+    balanceTransaction?.description,
+    storedBalance,
+  );
   const transferredSavings = transactionAmount("savings_transfer");
-  const currentBalance = Math.max(0, baseBalance - transferredSavings);
+  const currentBalance = Math.max(0, storedBalance - transferredSavings);
+  const atomicSavingsTransfers = balanceState.managed
+    ? Math.max(0, balanceState.initial - storedBalance)
+    : 0;
   const currentSavings =
-    transactionAmount("emergency_savings") + transferredSavings;
+    transactionAmount("emergency_savings") +
+    atomicSavingsTransfers +
+    transferredSavings;
   const incomeTransactions = transactions.filter(
     (transaction) => transaction.category === "work_income",
   );
-  const avgDailyIncome = incomeTransactions.length
+  const expectedIncomeTransaction = transactions.find(
+    (transaction) => transaction.category === "expected_daily_income",
+  );
+  const avgDailyIncome = expectedIncomeTransaction
+    ? Math.max(0, Number(expectedIncomeTransaction.amount) || 0)
+    : incomeTransactions.length
     ? incomeTransactions.reduce(
         (sum, transaction) => sum + (Number(transaction.amount) || 0),
         0,
@@ -224,7 +302,20 @@ function extractMessageAmount(message, keywordPattern) {
   );
   const fallback = message.match(/(?:₹|rs\.?|inr)\s*([\d,]+(?:\.\d+)?)/i);
   const raw = afterKeyword?.[1] || fallback?.[1];
-  return raw ? Number(raw.replace(/,/g, "")) || 0 : 0;
+  if (!raw) {
+    return { present: false, valid: true, value: 0 };
+  }
+  const normalized = raw.replace(/,/g, "");
+  const value = Number(normalized);
+  return {
+    present: true,
+    valid:
+      normalized.length <= 20 &&
+      Number.isFinite(value) &&
+      value >= 0 &&
+      value <= MAX_FINANCIAL_VALUE,
+    value: Number.isFinite(value) ? value : 0,
+  };
 }
 
 function buildGuidanceReply(message, profile, metrics, expenses, upcomingBills) {
@@ -238,7 +329,12 @@ function buildGuidanceReply(message, profile, metrics, expenses, upcomingBills) 
       message,
       "earned|earnt|received|inflow|income",
     );
-    const todayInflow = statedInflow || metrics.avgDailyIncome;
+    if (!requested.valid || !statedInflow.valid) {
+      return `${firstName}, that amount is too large or unclear for a safe calculation. Please enter a rupee amount between ₹0 and ${formatRupees(MAX_FINANCIAL_VALUE)}.`;
+    }
+    const todayInflow = statedInflow.present
+      ? statedInflow.value
+      : metrics.avgDailyIncome;
     const roomAfterEssentials = Math.max(
       0,
       Math.round(todayInflow - metrics.dailyBurnRate),
@@ -247,13 +343,13 @@ function buildGuidanceReply(message, profile, metrics, expenses, upcomingBills) 
       ? ` Your next tagged bill is ${nearestBill.name} for ${formatRupees(nearestBill.amount)} in ${nearestBill.due_in_days} days.`
       : " You have no upcoming tagged bills right now.";
 
-    if (!requested) {
+    if (!requested.present) {
       return `${firstName}, using ${formatRupees(todayInflow)} as today’s expected inflow, you have about ${formatRupees(roomAfterEssentials)} left after protecting ${formatRupees(metrics.dailyBurnRate)} for one day of essentials.${billNote} Tell me the amount you want to save for a direct yes-or-no check.`;
     }
-    if (requested <= roomAfterEssentials) {
-      return `Yes—${formatRupees(requested)} fits within the ${formatRupees(roomAfterEssentials)} left after protecting today’s essential cost of ${formatRupees(metrics.dailyBurnRate)}.${billNote} Review the bill timing before you tap Save; I have not moved any money.`;
+    if (requested.value <= roomAfterEssentials) {
+      return `Yes—${formatRupees(requested.value)} fits within the ${formatRupees(roomAfterEssentials)} left after protecting today’s essential cost of ${formatRupees(metrics.dailyBurnRate)}.${billNote} Review the bill timing before you tap Save; I have not moved any money.`;
     }
-    return `I would pause that transfer. Saving ${formatRupees(requested)} is ${formatRupees(requested - roomAfterEssentials)} above the room left after today’s essential cost. A safer upper limit is ${formatRupees(roomAfterEssentials)}.${billNote}`;
+    return `I would pause that transfer. Saving ${formatRupees(requested.value)} is ${formatRupees(requested.value - roomAfterEssentials)} above the room left after today’s essential cost. A safer upper limit is ${formatRupees(roomAfterEssentials)}.${billNote}`;
   }
 
   if (/\b(loan|borrow|borrowing|credit|afford)\b/.test(normalized)) {
@@ -261,13 +357,16 @@ function buildGuidanceReply(message, profile, metrics, expenses, upcomingBills) 
       message,
       "loan|borrow|borrowing|credit|afford",
     );
-    if (!requested) {
+    if (!requested.valid) {
+      return `${firstName}, that loan amount is too large or unclear for a safe comparison. Please enter a rupee amount between ₹0 and ${formatRupees(MAX_FINANCIAL_VALUE)}.`;
+    }
+    if (!requested.present) {
       return `${firstName}, your current 14-day affordability ceiling is ${formatRupees(metrics.affordabilityCeiling)}. It protects 14 days of essential costs first, then limits borrowing to 40% of the remaining expected cash flow. Tell me a loan amount and I’ll compare it directly.`;
     }
-    if (requested <= metrics.affordabilityCeiling) {
-      return `${formatRupees(requested)} is within your current ceiling of ${formatRupees(metrics.affordabilityCeiling)}. That keeps the request inside the plan’s 40% discretionary cash-flow limit. This is guidance, not a loan approval, and no application has been submitted.`;
+    if (requested.value <= metrics.affordabilityCeiling) {
+      return `${formatRupees(requested.value)} is within your current ceiling of ${formatRupees(metrics.affordabilityCeiling)}. That keeps the request inside the plan’s 40% discretionary cash-flow limit. This is guidance, not a loan approval, and no application has been submitted.`;
     }
-    return `${formatRupees(requested)} is above your current ceiling by ${formatRupees(requested - metrics.affordabilityCeiling)}. A safer counter-offer is ${formatRupees(metrics.affordabilityCeiling)} or less so your 14-day essential costs stay protected.`;
+    return `${formatRupees(requested.value)} is above your current ceiling by ${formatRupees(requested.value - metrics.affordabilityCeiling)}. A safer counter-offer is ${formatRupees(metrics.affordabilityCeiling)} or less so your 14-day essential costs stay protected.`;
   }
 
   if (/\b(buffer|score|cushion|slow week|improve)\b/.test(normalized)) {
@@ -384,7 +483,7 @@ app.post("/api/users/onboard", async (req, res) => {
         amount: answers.currentBalance,
         type: "income",
         category: "current_balance",
-        description: "Balance entered during onboarding",
+        description: createBalanceDescription(answers.currentBalance),
         transaction_date: new Date().toISOString().slice(0, 10),
       },
       ...(answers.currentSavings > 0
@@ -399,6 +498,14 @@ app.post("/api/users/onboard", async (req, res) => {
             },
           ]
         : []),
+      {
+        user_id: userId,
+        amount: answers.avgDailyIncome,
+        type: "income",
+        category: "expected_daily_income",
+        description: "Expected daily income entered during onboarding",
+        transaction_date: new Date().toISOString().slice(0, 10),
+      },
       ...buildSyntheticIncomeTransactions(userId, answers),
     ];
     ensureDatabaseResult(
@@ -419,7 +526,9 @@ app.post("/api/users/onboard", async (req, res) => {
       "Unable to save the resilience score",
     );
 
-    setActiveUserCookie(req, res, userId);
+    if (existingIdentity?.source !== "bearer") {
+      setActiveUserCookie(req, res, userId);
+    }
     return res.status(201).json({
       success: true,
       active_user_id: userId,
@@ -452,8 +561,10 @@ app.post("/api/users/onboard", async (req, res) => {
         console.error("Onboarding cleanup error:", cleanupResult.error);
       }
     }
-    console.error("Onboarding error:", error);
     const status = error instanceof ValidationError ? error.statusCode : 500;
+    if (status === 500) {
+      console.error("Onboarding error:", error);
+    }
     return res.status(status).json({ error: error.message });
   }
 });
@@ -499,7 +610,7 @@ app.get("/api/dashboard/active", async (req, res) => {
         .eq("user_id", activeUserId),
       db
         .from("transactions")
-        .select("amount, type, category")
+        .select("amount, type, category, description")
         .eq("user_id", activeUserId),
       ]);
 
@@ -569,9 +680,13 @@ app.post("/api/savings/calculate", requireActiveUser, async (req, res) => {
     const todayInflow = Number(
       req.body.today_inflow ?? req.body.todayInflow ?? req.body.dailyIncome,
     );
-    if (!Number.isFinite(todayInflow) || todayInflow < 0) {
+    if (
+      !Number.isFinite(todayInflow) ||
+      todayInflow < 0 ||
+      todayInflow > MAX_FINANCIAL_VALUE
+    ) {
       return res.status(400).json({
-        error: "today_inflow must be a non-negative number.",
+        error: `today_inflow must be between 0 and ${MAX_FINANCIAL_VALUE}.`,
       });
     }
 
@@ -612,13 +727,24 @@ app.post("/api/savings/calculate", requireActiveUser, async (req, res) => {
   }
 });
 
-app.post("/api/savings/commit", requireActiveUser, async (req, res) => {
-  try {
+app.post("/api/savings/commit", requireActiveUser, async (req, res) =>
+  withUserMutationLock(req.activeUserId, async () => {
+    try {
     const amount = Number(req.body.amount) || 0;
-    if (!Number.isFinite(amount) || amount <= 0) {
+    const operationId = String(
+      req.body.operationId || crypto.randomUUID(),
+    ).trim();
+    if (
+      !Number.isFinite(amount) ||
+      amount <= 0 ||
+      amount > MAX_FINANCIAL_VALUE
+    ) {
       return res.status(400).json({
-        error: "amount must be greater than zero.",
+        error: `amount must be between 1 and ${MAX_FINANCIAL_VALUE}.`,
       });
+    }
+    if (operationId && !/^[a-zA-Z0-9_-]{8,100}$/.test(operationId)) {
+      return res.status(400).json({ error: "operationId is invalid." });
     }
 
     const [profileResult, expensesResult, transactionsResult] =
@@ -634,7 +760,7 @@ app.post("/api/savings/commit", requireActiveUser, async (req, res) => {
           .eq("user_id", req.activeUserId),
         req.db
           .from("transactions")
-          .select("amount, type, category")
+          .select("id, amount, type, category, description")
           .eq("user_id", req.activeUserId),
       ]);
     const profile = ensureDatabaseResult(
@@ -650,29 +776,130 @@ app.post("/api/savings/commit", requireActiveUser, async (req, res) => {
       "Unable to fetch transactions",
     );
     const before = deriveDashboardMetrics(profile, expenses, transactions);
+    const balanceTransaction = transactions.find(
+      (transaction) => transaction.category === "current_balance",
+    );
+    if (!balanceTransaction) {
+      return res.status(409).json({
+        error: "Complete onboarding before saving.",
+        code: "ONBOARDING_REQUIRED",
+      });
+    }
+    const balanceState = parseBalanceDescription(
+      balanceTransaction.description,
+      balanceTransaction.amount,
+    );
+    if (balanceState.operations.includes(operationId)) {
+      return res.json({
+        success: true,
+        duplicate: true,
+        saved_amount: amount,
+        current_balance: before.currentBalance,
+        current_savings: before.currentSavings,
+        buffer_days: before.bufferDays,
+        resilience_score: before.resilienceScore,
+      });
+    }
+    const todayInflowValue =
+      req.body.todayInflow === undefined
+        ? before.avgDailyIncome
+        : Number(req.body.todayInflow);
+    if (
+      !Number.isFinite(todayInflowValue) ||
+      todayInflowValue < 0 ||
+      todayInflowValue > MAX_FINANCIAL_VALUE
+    ) {
+      return res.status(400).json({
+        error: `todayInflow must be between 0 and ${MAX_FINANCIAL_VALUE}.`,
+      });
+    }
+    const safeToSave = calculateSafeToSave(
+      todayInflowValue,
+      before.dailyBurnRate,
+    );
 
     if (amount > before.currentBalance) {
       return res.status(400).json({
         error: "The saving amount cannot exceed your available balance.",
       });
     }
+    if (amount > safeToSave) {
+      return res.status(400).json({
+        error: `₹${amount} is above today’s safe-to-save amount of ₹${safeToSave}.`,
+      });
+    }
 
-    const transfer = {
-      user_id: req.activeUserId,
-      amount,
-      type: "expense",
-      category: "savings_transfer",
-      description: "Moved from available balance to emergency savings",
-      transaction_date: new Date().toISOString().slice(0, 10),
-    };
-    ensureDatabaseResult(
-      await req.db.from("transactions").insert(transfer),
+    const newBalance =
+      Math.max(0, Number(balanceTransaction.amount) || 0) - amount;
+    const newDescription = createBalanceDescription(balanceState.initial, [
+      ...balanceState.operations,
+      operationId,
+    ]);
+    let updateQuery = req.db
+      .from("transactions")
+      .update({
+        amount: newBalance,
+        description: newDescription,
+      })
+      .eq("id", balanceTransaction.id)
+      .eq("amount", Number(balanceTransaction.amount));
+    updateQuery =
+      balanceTransaction.description === null
+        ? updateQuery.is("description", null)
+        : updateQuery.eq("description", balanceTransaction.description);
+    const updatedBalance = ensureDatabaseResult(
+      await updateQuery
+        .select("id, amount, type, category, description")
+        .maybeSingle(),
       "Unable to save the transfer",
     );
-    const after = deriveDashboardMetrics(profile, expenses, [
-      ...transactions,
-      transfer,
-    ]);
+    if (!updatedBalance) {
+      const latestBalance = ensureDatabaseResult(
+        await req.db
+          .from("transactions")
+          .select("id, amount, type, category, description")
+          .eq("id", balanceTransaction.id)
+          .single(),
+        "Unable to recheck the balance",
+      );
+      const latestState = parseBalanceDescription(
+        latestBalance.description,
+        latestBalance.amount,
+      );
+      if (latestState.operations.includes(operationId)) {
+        const latestMetrics = deriveDashboardMetrics(
+          profile,
+          expenses,
+          transactions.map((transaction) =>
+            transaction.id === balanceTransaction.id
+              ? latestBalance
+              : transaction,
+          ),
+        );
+        return res.json({
+          success: true,
+          duplicate: true,
+          saved_amount: amount,
+          current_balance: latestMetrics.currentBalance,
+          current_savings: latestMetrics.currentSavings,
+          buffer_days: latestMetrics.bufferDays,
+          resilience_score: latestMetrics.resilienceScore,
+        });
+      }
+      return res.status(409).json({
+        error: "Your balance changed while saving. Please try again.",
+        code: "BALANCE_CHANGED",
+      });
+    }
+    const after = deriveDashboardMetrics(
+      profile,
+      expenses,
+      transactions.map((transaction) =>
+        transaction.id === balanceTransaction.id
+          ? updatedBalance
+          : transaction,
+      ),
+    );
 
     return res.json({
       success: true,
@@ -682,11 +909,12 @@ app.post("/api/savings/commit", requireActiveUser, async (req, res) => {
       buffer_days: after.bufferDays,
       resilience_score: after.resilienceScore,
     });
-  } catch (error) {
-    console.error("Savings transfer failed:", error.message);
-    return res.status(500).json({ error: "Unable to save this amount." });
-  }
-});
+    } catch (error) {
+      console.error("Savings transfer failed:", error.message);
+      return res.status(500).json({ error: "Unable to save this amount." });
+    }
+  }),
+);
 
 app.post("/api/guidance/chat", requireActiveUser, async (req, res) => {
   try {
@@ -716,7 +944,7 @@ app.post("/api/guidance/chat", requireActiveUser, async (req, res) => {
           .eq("user_id", req.activeUserId),
         req.db
           .from("transactions")
-          .select("amount, type, category")
+          .select("amount, type, category, description")
           .eq("user_id", req.activeUserId),
       ]);
     const profile = ensureDatabaseResult(
@@ -759,6 +987,21 @@ app.post("/api/guidance/chat", requireActiveUser, async (req, res) => {
 
 app.post("/api/users/reset", requireActiveUser, async (req, res) => {
   try {
+    if (req.identitySource === "session") {
+      const authResult = await supabase.auth.admin.deleteUser(req.activeUserId);
+      if (authResult.error) {
+        throw new Error(
+          `Unable to remove the active user: ${authResult.error.message}`,
+        );
+      }
+      clearActiveUserCookie(req, res);
+      return res.json({
+        success: true,
+        reset: true,
+        stage: 1,
+      });
+    }
+
     for (const table of [
       "transactions",
       "recurring_expenses",
@@ -772,15 +1015,6 @@ app.post("/api/users/reset", requireActiveUser, async (req, res) => {
         ),
         `Unable to clear ${table}`,
       );
-    }
-
-    if (req.identitySource === "session") {
-      const authResult = await supabase.auth.admin.deleteUser(req.activeUserId);
-      if (authResult.error) {
-        throw new Error(
-          `Unable to remove the active user: ${authResult.error.message}`,
-        );
-      }
     }
 
     clearActiveUserCookie(req, res);
