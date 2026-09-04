@@ -1,5 +1,5 @@
 # Hackatouille
-# ResilientBank 🏦
+# ResilientBank
 
 Financial resilience for individuals with irregular and gig-based incomes.
 
