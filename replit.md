@@ -1,5 +1,9 @@
 # ResilientBank API
 
+The app is standard React/Vite + Express + Supabase and is portable outside
+Replit. See `README.md` for platform-neutral setup and `AI_HANDOFF.md` for
+instructions intended for other AI coding tools.
+
 ## Run
 
 The Replit workflow `ResilientBank API` runs `npm start`, which builds the
